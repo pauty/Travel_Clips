@@ -5,39 +5,73 @@
 
 (defmodule MAIN (export ?ALL))
 
-  
-(deftemplate MAIN::basic-attribute
-   (slot name)
-   (slot value)
-   (slot certainty (default 100.0)))
-   
-   
-(deftemplate MAIN::preference
-   (slot name)
-   (slot answer-value))
 
+(deftemplate MAIN::preference
+   (slot topic)
+   (slot answer-value)
+)
+  
+  
+(deftemplate MAIN::dv 
+   (multislot description)
+   (multislot value)
+   (slot CF (default 100.0))
+)
+
+(deftemplate MAIN::dv-numeric
+   (multislot description)
+   (multislot value (type INTEGER))
+   (slot CF (default 100.0))
+)
+   
 
 (deffacts MAIN::control-information
-(phase-sequence QUESTIONS QUESTION-INFERENCE RESORT HOTEL SUGGESTION SHOW))
+(phase-sequence QUESTIONS QUESTION-INFERENCE RESORT HOTEL SUGGESTION SHOW)
+)
 
 (defrule MAIN::change-phase
-    (declare (salience -1000)
+    (declare (salience -1000))
     ?list <- (phase-sequence ?next-phase $?other-phases)
 =>
     (focus ?next-phase)
     (retract ?list)
-    (assert (phase-sequence ?other-phases ?next-phase)))
+    (assert (phase-sequence ?other-phases ?next-phase))
+)
 
+  
+(defrule MAIN::combine-certainties-both-positive
+    (declare (auto-focus TRUE))
+    ?fact1 <- (dv (description ?d) (value ?v) (CF ?C1&:(>= ?C1 0.0)))
+    ?fact2 <- (dv (description ?d) (value ?v) (CF ?C2&:(>= ?C2 0.0)))
+    (test (neq ?fact1 ?fact2))
+=>
+    (retract ?fact1)
+    (bind ?C3 (- (+ ?C1 ?C2) (* ?C1 ?C2)))
+    (modify ?fact2 (CF ?C3))
+)
+    
+(defrule MAIN::combine-certainties-both-negative
+    (declare (auto-focus TRUE))
+    ?fact1 <- (dv (description ?d) (value ?v) (CF ?C1&:(< ?C1 0.0)))
+    ?fact2 <- (dv (description ?d) (value ?v) (CF ?C2&:(< ?C2 0.0)))
+    (test (neq ?fact1 ?fact2))
+=>
+    (retract ?fact1)
+    (bind ?C3 (+ (+ ?C1 ?C2) (* ?C1 ?C2)))
+    (modify ?fact2 (CF ?C3))
+)
 
-(defrule MAIN::combine-certainties ""
-  (declare (salience 100)
-           (auto-focus TRUE))
-  ?rem1 <- (basic-attribute (name ?rel) (value ?val) (certainty ?per1))
-  ?rem2 <- (basic-attribute (name ?rel) (value ?val) (certainty ?per2))
-  (test (neq ?rem1 ?rem2))
-  =>
-  (retract ?rem1)
-  (modify ?rem2 (certainty (/ (- (* 100 (+ ?per1 ?per2)) (* ?per1 ?per2)) 100))))
+(defrule MAIN::combine-certainties-negative-positive
+    (declare (auto-focus TRUE))
+    ?fact1 <- (dv (description ?d) (value ?v) (CF ?C1))
+    ?fact2 <- (dv (description ?d) (value ?v) (CF ?C2))
+    (test (neq ?fact1 ?fact2))
+    (< 0 (* ?C1 ?C2))
+=>
+    (retract ?fact1)
+    (bind ?C3 (/ (+ ?C1 ?C2) (- 1 (min (abs(?C1) abs(?C2))))))
+    (modify ?fact2 (CF ?C3))
+)
 
 
 ;;****************
@@ -62,21 +96,22 @@
 (defmodule QUESTIONS (import MAIN ?ALL) (export ?ALL))
 
 (deftemplate QUESTIONS::question
-   (slot preference-name (default ?NONE))
+   (slot preference-topic (default ?NONE))
    (slot the-question (default ?NONE))
    (multislot valid-answers (default ?NONE))
    (slot already-asked (default FALSE))
-   (multislot precursors (default ?DERIVE)))
+   (multislot precursors (default ?DERIVE))
+)
    
 
 (deffacts QUESTIONS::questions-list
-  (question (preference-name temperature)
+  (question (preference-topic temperature)
             (the-question "Posti caldi o freddi?")
             (valid-answers cool both warm))
-  (question (preference-name cost)
+  (question (preference-topic cost)
             (the-question "Viaggio economico o lussuoso?")
             (valid-answers cheap budget normal expensive very-expensive))
-  (question (preference-name culture)
+  (question (preference-topic culture)
             (the-question "Ti interessa la cultura?")
             (valid-answers no sometimes yes))
 ) 
@@ -86,13 +121,14 @@
    ?f <- (question (already-asked FALSE)
                    (precursors)
                    (the-question ?the-question)
-                   (preference-name ?the-preference)
+                   (preference-topic ?the-preference)
                    (valid-answers $?valid-answers))
    =>
    (modify ?f (already-asked TRUE))
-   (assert (preference (name ?the-preference)
+   (assert (preference (topic ?the-preference)
                        (answer-value (ask-question ?the-question ?valid-answers))))
-   (assert (already-answered)))
+   (assert (already-answered))
+)
    
 
 (defrule QUESTION::change-phase
@@ -103,6 +139,7 @@
     (retract ?list)
     (assert (phase-sequence ?other-phases ?next-phase))
     (retract (already-answered))
+)
 
 ;;*****************************
 ;;* MODULE QUESTION-INFERENCE *
@@ -112,31 +149,35 @@
 (defmodule QUESTION-INFERENCE (import MAIN ?ALL))
 
 (defrule QUESTION-INFERENCE::temperature
-    (preference ((name temperature) (answer-value hot)))
+    (preference ((topic temperature) (answer-value hot)))
 =>
-    (assert (basic-attribute (name tourism-type) (value sea) (certainty 80)))
-    (assert (basic-attribute (name tourism-type) (value mountain) (certainty 50))) )
+    (assert (dv (description tourism-type-is) (value sea) (cf 0.8)))
+    (assert (dv (description tourism-type-is) (value mountain) (cf 0.5))) 
+)
     
 (defrule QUESTION-INFERENCE::temperature
-    (preference ((name temperature) (answer-value cool)))
+    (preference ((topic temperature) (answer-value cool)))
 =>
-    (assert (basic-attribute (name tourism-type) (value mountain) (certainty 80)))
-    (assert (basic-attribute (name tourism-type) (value sea) (certainty 50))) )
+    (assert (dv (description tourism-type-is) (value mountain) (cf 0.8)))
+    (assert (dv (description tourism-type-is) (value sea) (cf 0.5))) 
+)
     
 (defrule QUESTION-INFERENCE::interest
-    (preference ((name interest) (answer-value museum)))
+    (preference ((topic interest) (answer-value museum)))
 =>
-    (assert (basic-attribute (name tourism-type) (value cultural) (certainty 80)))
-    (assert (basic-attribute (name tourism-type) (value natural) (certainty 50))) )
+    (assert (dv (description tourism-type-is) (value cultural) (cf 0.8)))
+    (assert (dv (description tourism-type-is) (value religious) (cf 0.5))) 
+)
      
 
 (defrule QUESTION-INFERENCE::change-phase
-    (declare (salience -1000)
+    (declare (salience -1000))
     ?list <- (phase-sequence ?next-phase $?other-phases)
 =>
     (focus ?next-phase)
     (retract ?list)
-    (assert (phase-sequence ?other-phases ?next-phase)))
+    (assert (phase-sequence ?other-phases ?next-phase))
+)
   
   
 ;;*****************
@@ -157,11 +198,10 @@
   (slot score (type INTEGER) (range 0 5))) 
   
 
-
 (deftemplate RESORT::route
   (slot resort-src (default ?NONE))
   (slot resort-dst (default ?NONE))
-  (slot distance (type INTEGER) (range 0 ?VARIABLE))) 
+  (slot distance (type INTEGER) (range 1 ?VARIABLE))) 
    
   
 ;;;;;;;;; FACTS ;;;;;;;;; 
@@ -180,20 +220,22 @@
 ;;;;;;;;; RULES ;;;;;;;;; 
 
 (defrule RESORT::rate-resort
-    (basic-attribute ((name tourism-type) (value ?v)))
+    (dv ((description tourism-type-is) (value ?v)))
     (resort (name ?rn))
     (resort-tourism (resort-name ?rn) (tourism-type ?v) (score ?s))
 =>
-    (assert (basic-attribute (name resort-name) (value ?rn) (certainty (* ?s 20)))) )
+    (assert (dv (description the-resort) (value ?rn) (cf (* ?s 0.2))))
+)
 
 
 (defrule RESORT::change-phase
-    (declare (salience -1000)
+    (declare (salience -1000))
     ?list <- (phase-sequence ?next-phase $?other-phases)
 =>
     (focus ?next-phase)
     (retract ?list)
-    (assert (phase-sequence ?other-phases ?next-phase)))
+    (assert (phase-sequence ?other-phases ?next-phase))
+)
 
 
 ;;****************
@@ -212,10 +254,6 @@
   (slot availability (type INTEGER) (range 0 ?VARIABLE)))
 
 
-(deftemplate HOTEL::resort-hotel-assotiation
-   (slot resort-name)
-   (slot hotel-name)
-   (slot certainty (default 100.0)))  
    
 ;;;;;;;; FACTS ;;;;;;;;;;;;
 
@@ -224,26 +262,25 @@
 
 
 (defrule HOTEL::rate-hotel-by-stars
-    (basic-attribute ((name hotel-stars) (value ?stars-v) (certainty ?c)))
-    (basic-attribute ((name people-number) (value ?people-v)))
-    (hotel (name ?hn) (stars ?hotel-stars) (availability ?av&:(>= ?av ?people-v)))
+    (dv-numeric ((description how-many-hotel-stars) (value ?s) (cf ?c)))
+    (dv-numeric ((description how-many-people) (value ?p)))
+    (hotel (name ?hn) (stars ?hs) (availability ?a&:(>= ?a ?p)))
 =>
-    (assert (basic-attribute (name resort-name) (value ?rn) (certainty (* ?s 20)))) )
+    (assert (dv (description the-hotel-in ?rn) (value ?hn) (cf ((* ?s 20)))) )
     
 (defrule HOTEL::rate-hotel-by-cost
-    (basic-attribute ((name hotel-cost) (value ?people-v) (certainty ?c)))
+    (basic-attribute ((name hotel-cost) (value ?people-v) (cf ?c)))
     (basic-attribute ((name people-number) (value ?people-v)))
     (hotel (name ?hn) (stars ?hotel-stars) (availability ?av&:(>= ?av ?people-v)))
 =>
-    (assert (basic-attribute (name resort-name) (value ?rn) (certainty (* ?s 20)))) )
+    (assert (basic-attribute (name resort-name) (value ?rn) (cf (* ?s 20)))) )
 
   
 (defrule HOTEL::rate-resort-hotel-assotiation
-    (basic-attribute ((name resort-name) (value ?resort-v) (certainty ?resort-c))
-    (basic-attribute (name hotel-name) (value ?hotel-v) (certainty ?hotel-c))
+    (basic-attribute (name resort-name) (value ?resort-v) (cf ?resort-c))
+    (basic-attribute (name hotel-name) (value ?hotel-v) (cf ?hotel-c))
 =>
-    
-    (assert (resort-hotel-assotiation (resort-name ?resort-v) (hotel-name ?resort-v) (certainty (min ?resort-c ?hotel-c)))) )
+    (assert (resort-hotel-assotiation (resort-name ?resort-v) (hotel-name ?resort-v) (cf (min ?resort-c ?hotel-c)))) )
 
 
 ;;*****************
@@ -259,10 +296,10 @@
   (slot duration (type INTEGER) (range 0 ?VARIABLE)))  
   
 (defrule RESORT::rate-travel
-    (resort-hotel-assotiation ((name resort-name) (value ?resort-v1) (certainty ?c1))) 
+    (resort-hotel-assotiation ((name resort-name) (value ?resort-v1) (cf ?c1))) 
     (resort (name ?rn))
 =>
-    (assert (attribute (name resort-name) (value ?rn) (certainty (* ?s 20)))) )
+    (assert (attribute (name resort-name) (value ?rn) (cf (* ?s 20)))) )
   
 
   
