@@ -2,16 +2,9 @@
 ;;* MODULE MAIN  *
 ;;****************
 
-(deffacts MAIN::control-information
-(phase-sequence QUESTIONS QUESTION-INFERENCE INIT RESET RATE-RESORT RATE-HOTEL RATE-PATH RATE-DURATION)
+(deffacts MAIN::define-phase-sequence
+(phase-sequence QUESTION QUESTION-INFERENCE INIT REFRESH RATE-RESORT RATE-HOTEL BUILD-AND-RATE-TRIP)
 )
-
-;;(defrule MAIN::init
-;;    (declare (salience 1000))
-;;    (initial-fact)
-;;=>
-;;    (focus INIT)
-;;)
 
 (defrule MAIN::change-phase
     (declare (salience -1000))
@@ -21,7 +14,10 @@
     (retract ?list)
     (assert (phase-sequence ?other-phases ?next-phase))
 )
-  
+
+;;******************
+;;* MODULE COMMON  *
+;;******************
 
 (defmodule COMMON (export deftemplate dv dv-numeric))
 
@@ -38,6 +34,8 @@
    (slot CF (default 100.0))
    (slot basic (default FALSE))
 )
+
+;;;;;;;;; COMBINE CERTAINTIES ;;;;;;;;
   
 (defrule COMMON::combine-certainties-both-positive
     (declare (auto-focus TRUE))
@@ -75,17 +73,17 @@
 
 
 ;;********************
-;;* MODULE QUESTIONS *
+;;* MODULE QUESTION *
 ;;********************
 
-(defmodule QUESTIONS (export deftemplate preference))
+(defmodule QUESTION (export deftemplate preference))
 
-(deftemplate QUESTIONS::preference
+(deftemplate QUESTION::preference
    (slot topic)
    (slot answer-value)
 )
 
-(deftemplate QUESTIONS::question
+(deftemplate QUESTION::question
    (slot preference-topic (default ?NONE))
    (slot type (default closed))
    (slot the-question (default ?NONE))
@@ -95,7 +93,7 @@
 )
    
 
-(deffacts QUESTIONS::questions-list
+(deffacts QUESTION::questions-list
   (question (preference-topic temperature)
             (the-question "Posti caldi o freddi?")
             (valid-answers cool both warm))
@@ -120,7 +118,7 @@
 ) 
 
 ;; *********the ask function********
-(deffunction QUESTIONS::ask-closed-question (?question ?allowed-values)
+(deffunction QUESTION::ask-closed-question (?question ?allowed-values)
    (printout t ?question)
    (bind ?answer (read))
    (if (lexemep ?answer) then (bind ?answer (lowcase ?answer)))
@@ -132,7 +130,7 @@
 )
    
 ;; *********the ask function********
-(deffunction QUESTIONS::ask-range-question (?question ?min ?max)
+(deffunction QUESTION::ask-range-question (?question ?min ?max)
    (printout t ?question)
    (bind ?answer (read))
    (while (or (not (numberp ?answer)) (< ?answer ?min) (> ?answer ?max)) do
@@ -141,7 +139,7 @@
    ?answer
 )
 
-(defrule QUESTIONS::ask-a-closed-question
+(defrule QUESTION::ask-a-closed-question
    ?fact <- (question (already-asked FALSE)
                    (type closed)
                    (the-question ?q)
@@ -152,7 +150,7 @@
    (assert (preference (topic ?pt) (answer-value (ask-closed-question ?q ?va))))
 )
 
-(defrule QUESTIONS::ask-a-range-question
+(defrule QUESTION::ask-a-range-question
    ?fact <- (question (already-asked FALSE)
                    (type range)
                    (the-question ?q)
@@ -169,7 +167,7 @@
 ;;*****************************
  
 
-(defmodule QUESTION-INFERENCE (import COMMON ?ALL) (import QUESTIONS ?ALL))
+(defmodule QUESTION-INFERENCE (import COMMON ?ALL) (import QUESTION ?ALL))
 
 (defrule QUESTION-INFERENCE::temperature-warm
     (preference (topic temperature) (answer-value warm))
@@ -196,8 +194,8 @@
 (defrule QUESTION-INFERENCE::culture-no
     (preference (topic culture) (answer-value no))
 =>
-    (assert (dv (description tourism-type-is) (value cultural) (CF -0.8) (basic TRUE))))
-    (assert (dv (description tourism-type-is) (value religious) (CF -0.5) (basic TRUE)))) 
+    (assert (dv (description tourism-type-is) (value cultural) (CF -0.8) (basic TRUE)))
+    (assert (dv (description tourism-type-is) (value religious) (CF -0.5) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::cost-cheap
@@ -236,30 +234,13 @@
 (defrule QUESTION-INFERENCE::max-distance
     (preference (topic max-distance) (answer-value ?v))
 =>
-    (assert (dv-numeric (description the-max-distance-is) (value ?v) (CF 1.0) (basic TRUE)))
+    (assert (dv-numeric (description the-max-route-distance) (value ?v) (CF 1.0) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::duration
     (preference (topic duration) (answer-value ?v))
 =>
-    (assert (dv-numeric (description trip-duration) (value ?v) (CF 1.0) (basic TRUE)))
-)
-
-
-(defrule QUESTION-INFERENCE::reassert-basic-dv
-    (declare (salience (-100))
-    ?fact <- (dv (description $?d) (value $?v) (CF ?c) (basic TRUE))
-=>  
-    (retract ?fact)
-    (assert (dv (description $?d) (value $?v) (CF ?c) (basic TRUE)))
-)
-
-
-(defrule QUESTION-INFERENCE::remove-derived-dv
-    (declare (salience (-100))
-    ?fact <- (dv (description $?d) (value $?v) (CF ?c) (basic FALSE))
-=>  
-    (retract ?fact)
+    (assert (dv-numeric (description the-trip-duration) (value ?v) (CF 1.0) (basic TRUE)))
 )
 
 
@@ -270,38 +251,38 @@
 (defmodule RESORT (export ?ALL))
 
 (deftemplate RESORT::resort
-  (slot name  (default ?NONE))
-  (slot region (default ?NONE))
+    (slot name  (default ?NONE))
+    (slot region (default ?NONE))
 )
   
 (deftemplate RESORT::resort-tourism
-  (slot resort-name  (default ?NONE))
-  (slot tourism-type (default ?NONE))
-  (slot score (type INTEGER) (range 0 5))) 
+    (slot resort-name  (default ?NONE))
+    (slot tourism-type (default ?NONE))
+    (slot score (type INTEGER) (range 0 5))
+) 
   
-
 (deftemplate RESORT::route
-  (slot resort-src (default ?NONE))
-  (slot resort-dst (default ?NONE))
-  (slot distance (type INTEGER) (range 1 ?VARIABLE))
+    (slot resort-src (default ?NONE))
+    (slot resort-dst (default ?NONE))
+    (slot distance (type INTEGER) (range 1 ?VARIABLE))
 ) 
 
-(deffacts RESORT::resort-list 
-  (resort (name BiancaVilla) (region Kanto))
-  (resort (name Lavandonia) (region Kanto))
-  (resort (name MonteFatuo) (region Kanto))
-)
+;;;;;;;;;; FACTS ;;;;;;;;;;;;;
 
-;;;;; FACTS ;;;;;;
+(deffacts RESORT::resort-list 
+    (resort (name BiancaVilla) (region Kanto))
+    (resort (name Lavandonia) (region Kanto))
+    (resort (name MonteFatuo) (region Kanto))
+)
   
 (deffacts RESORT::resort-tourism-list 
-  (resort-tourism (resort-name BiancaVilla) (tourism-type sea) (score 4))
-  (resort-tourism (resort-name BiancaVilla) (tourism-type mountain) (score 1))
-  (resort-tourism (resort-name BiancaVilla) (tourism-type cultural) (score 3))
-  (resort-tourism (resort-name Lavandonia) (tourism-type sea) (score 3))
-  (resort-tourism (resort-name Lavandonia) (tourism-type religious) (score 3))
-  (resort-tourism (resort-name MonteFatuo) (tourism-type cultural) (score 3))
-  (resort-tourism (resort-name MonteFatuo) (tourism-type mountain) (score 4))
+    (resort-tourism (resort-name BiancaVilla) (tourism-type sea) (score 4))
+    (resort-tourism (resort-name BiancaVilla) (tourism-type mountain) (score 1))
+    (resort-tourism (resort-name BiancaVilla) (tourism-type cultural) (score 3))
+    (resort-tourism (resort-name Lavandonia) (tourism-type sea) (score 3))
+    (resort-tourism (resort-name Lavandonia) (tourism-type religious) (score 3))
+    (resort-tourism (resort-name MonteFatuo) (tourism-type cultural) (score 3))
+    (resort-tourism (resort-name MonteFatuo) (tourism-type mountain) (score 4))
 )
 
 (deffacts RESORT:route-list
@@ -317,36 +298,22 @@
 (defmodule HOTEL (export ?ALL))
 
 (deftemplate HOTEL::hotel
-  (slot name (default ?NONE))
-  (slot resort)
-  (slot stars (type INTEGER) (range 1 4))
-  (slot empty (type INTEGER) (range 0 ?VARIABLE))
-  (slot capacity (type INTEGER) (range 0 ?VARIABLE))
+    (slot name (default ?NONE))
+    (slot resort)
+    (slot stars (type INTEGER) (range 1 4))
+    (slot empty (type INTEGER) (range 0 ?VARIABLE))
+    (slot capacity (type INTEGER) (range 0 ?VARIABLE))
 )
   
-
-;;;;;;;; FACTS ;;;;;;;;;;;;
+;;;;;;;;;;; FACTS ;;;;;;;;;;;;
 
 (deffacts HOTEL::hotel-list
-  (hotel (name YesHotel) (resort BiancaVilla) (stars 3) (empty 8) (capacity 20))
-  (hotel (name BhaHotel) (resort BiancaVilla) (stars 1) (empty 12) (capacity 40))
-  (hotel (name MammaHotel) (resort Lavandonia) (stars 4) (empty 7) (capacity 40))
-  (hotel (name BubbaHotel) (resort Lavandonia) (stars 3) (empty 10) (capacity 20))
-  (hotel (name FuocoHotel) (resort MonteFatuo) (stars 3) (empty 15) (capacity 25))
-  (hotel (name MerdaHotel) (resort MonteFatuo) (stars 1) (empty 20) (capacity 30))
-)
-
-
-;;*****************
-;;* MODULE PATH *
-;;*****************
- 
-(defmodule PATH (export ?ALL))
-
-(deftemplate PATH::path
-    (multislot resorts-list)
-    (slot length (type INTEGER))
-    (slot total-distance (type INTEGER))
+    (hotel (name YesHotel) (resort BiancaVilla) (stars 3) (empty 8) (capacity 20))
+    (hotel (name BhaHotel) (resort BiancaVilla) (stars 1) (empty 12) (capacity 40))
+    (hotel (name MammaHotel) (resort Lavandonia) (stars 4) (empty 7) (capacity 40))
+    (hotel (name BubbaHotel) (resort Lavandonia) (stars 3) (empty 10) (capacity 20))
+    (hotel (name FuocoHotel) (resort MonteFatuo) (stars 3) (empty 15) (capacity 25))
+    (hotel (name MerdaHotel) (resort MonteFatuo) (stars 1) (empty 20) (capacity 30))
 )
 
 
@@ -356,17 +323,24 @@
 
 (defmodule TRIP (export ?ALL))
 
+(deftemplate TRIP::path
+    (multislot resorts)
+    (slot length (type INTEGER))
+    (slot total-distance (type INTEGER))
+)
+
 (deftemplate TRIP::duration
     (multislot days (type INTEGER))
     (slot length (type INTEGER))
 )
 
 (deftemplate TRIP::trip
-    (slot id (default-dynamic (gensym*)))
-    (multislot resorts-list)
-    (multislot hotels-list (default NULL NULL NULL NULL NULL))
+    (slot trip-id (default-dynamic (gensym*)))
+    (multislot resorts)
+    (multislot hotels (default NULL NULL NULL NULL NULL))
     (multislot days (type INTEGER))
     (multislot costs (type INTEGER) (default 0 0 0 0 0))
+    (slot length (type INTEGER))
 )
 
   
@@ -374,7 +348,7 @@
 ;;* MODULE INIT  *
 ;;****************
 
-(defmodule INIT  (import COMMON ?ALL) (import RESORT ?ALL) (import HOTEL ?ALL) (import PATH ?ALL) (import TRIP ?ALL))  
+(defmodule INIT  (import COMMON ?ALL) (import RESORT ?ALL) (import HOTEL ?ALL) (import TRIP ?ALL))  
 
 
 (defrule INIT::check-already-done-init
@@ -383,6 +357,7 @@
 =>
     (pop-focus)
 )
+
 
 (defrule INIT::assert-already-done-init
     (declare (salience -10000))
@@ -398,26 +373,26 @@
     (assert (route (resort-src ?r2) (resort-dst ?r1) (distance ?d)))
 )
   
-
+  
 (defrule INIT::build-singleton-path
     (resort (name ?r))
 =>
-    (assert (path (resorts-list ?r) (length 1) (total-distance 0)))
+    (assert (path (resorts ?r) (length 1) (total-distance 0)))
 )
 
 (defrule INIT::build-path
-    (path (resorts-list $?rs ?lr) (length ?len) (total-distance ?td))
+    (path (resorts $?rs ?lr) (length ?len) (total-distance ?td))
     (test (< ?len 5))
     (route (resort-src ?lr) (resort-dst ?nr) (distance ?d)) 
     (test (eq (member$ ?nr (create$ ?rs ?lr)) FALSE))
 =>
-    (assert (path (resorts-list ?rs ?lr ?nr) (length (+ ?len 1)) (total-distance (+ ?td ?d))))
+    (assert (path (resorts ?rs ?lr ?nr) (length (+ ?len 1)) (total-distance (+ ?td ?d))))
 )
 
 
 (defrule INIT::remove-suboptimal-distance-path
-    ?p1 <- (path (resorts-list $?rs1) (total-distance ?d1))
-    ?p2 <- (path (resorts-list $?rs2) (total-distance ?d2))
+    ?p1 <- (path (resorts $?rs1) (total-distance ?d1))
+    ?p2 <- (path (resorts $?rs2) (total-distance ?d2))
     (test (and (neq ?p1 ?p2) (<= ?d1 ?d2)))
     (test (subsetp ?rs1 ?rs2))
     (test (subsetp ?rs2 ?rs1))
@@ -427,20 +402,20 @@
 
 
 (defrule INIT::define-duration-unit
-    (dv-numeric (description trip-duration) (value ?d))
+    (dv-numeric (description the-trip-duration) (value ?d))
 =>
-    (assert (duration-unit (max 1 (div ?d 10))))
+    (assert (dv-numeric (description the-duration-unit) (value (max 1 (div ?d 10))) (CF 1.0) (basic TRUE)))
 )
 
 
-(defrule INIT::generate-basic-duration
-    (dv-numeric (description trip-duration) (value ?d))
+(defrule INIT::generate-singleton-duration
+    (dv-numeric (description the-trip-duration) (value ?d))
 =>
     (assert (duration (days ?d) (length 1)))  
 )
 
-(defrule INIT::generate-longer-duration
-    (duration-unit ?u)
+(defrule INIT::generate-duration
+    (dv-numeric (description the-duration-unit) (value ?u))
     (duration (days $?ds ?d) (length ?len))
     (test (< (length$ (create$ ?ds ?d)) 5))
     (test (> ?d ?u))
@@ -449,11 +424,39 @@
 )
 
 (defrule INIT::permutate-duration
-    (duration-unit ?u)
+    (dv-numeric (description the-duration-unit) (value ?u))
     (duration (days $?dl ?d1 ?d2 $?dr) (length ?len))
     (test (> ?d1 ?u))
 =>
     (assert (duration (days ?dl (- ?d1 ?u) (+ ?d2 ?u) ?dr) (length ?len)))  
+)
+
+
+;;**********************
+;;* MODULE REFRESH *
+;;**********************
+
+(defmodule REFRESH (import COMMON ?ALL) (import TRIP ?ALL))
+
+(defrule REFRESH::reassert-basic-dv
+    ?fact <- (dv (description $?d) (value $?v) (CF ?c) (basic TRUE))
+=>  
+    (retract ?fact)
+    (assert (dv (description $?d) (value $?v) (CF ?c) (basic TRUE)))
+)
+
+
+(defrule REFRESH::remove-derived-dv
+    ?fact <- (dv (description $?d) (value $?v) (CF ?c) (basic FALSE))
+=>  
+    (retract ?fact)
+)
+
+
+(defrule REFRESH::remove-trip
+    ?t <- (trip)
+=>
+    (retract ?t)
 )
 
 
@@ -471,19 +474,19 @@
 
 (defrule RATE-RESORT::rate-resort-by-tourism-type
     (dv (description tourism-type-is) (value ?v) (CF ?cf))
-    (resort (name ?rn))
+    (resort (name ?r))
     (resort-tourism (resort-name ?rn) (tourism-type ?v) (score ?s))
 =>
-    (bind ?new-cf (/ (* ?s ?cf) 5.0))
-    (assert (dv (description visit-resort) (value ?rn) (CF ?new-cf)))
+    (bind ?rcf (/ (* ?s ?cf) 5.0))
+    (assert (dv (description visit-resort) (value ?r) (CF ?rcf)))
 )
 
 (defrule RATE-RESORT::rate-route
     (route (resort-src ?src) (resort-dst ?dst) (distance ?d))
-    (dv-numeric (description the-max-distance-is) (value ?v))
+    (dv-numeric (description the-max-route-distance) (value ?v))
 =>
-    (bind ?new-cf (min 0.6 (max -0.8 (/ (- ?v ?d) 50.0))))
-    (assert (dv (description use-route) (value ?src ?dst) (CF ?new-cf))) 
+    (bind ?rcf (min 0.6 (max -0.8 (/ (- ?v ?d) 50.0))))
+    (assert (dv (description use-route) (value ?src ?dst) (CF ?rcf))) 
 )
 
 
@@ -501,102 +504,145 @@
 
 (defrule RATE-HOTEL::rate-hotel-by-stars
     (dv-numeric (description how-many-hotel-stars) (value ?s) (CF ?cf))
-    (hotel (name ?hn) (resort ?r) (stars ?hs))
+    (hotel (name ?h) (resort ?r) (stars ?s))
 =>
-    (bind ?new-cf (- 0.6 (* (abs (- ?hs ?s)) 0.4)))
-    (assert (dv (description the-hotel-in ?r) (value ?hn) (CF ?new-cf)))
+    (assert (dv (description the-hotel-in ?r) (value ?h) (CF ?cf)))
 )
 
 (defrule RATE-HOTEL::rate-hotel-by-availability
     (dv-numeric (description how-many-people) (value ?p))
-    (hotel (name ?hn) (resort ?r) (empty ?a&:(> ?a ?p)) (capacity ?c))
+    (hotel (name ?h) (resort ?r) (empty ?e&:(> ?e ?p)) (capacity ?c))
 =>
-    (bind ?new-cf (* 0.7 (/ ?a ?c)))
-    (assert (dv (description the-hotel-in ?r) (value ?hn) (CF ?new-cf)))
+    (bind ?new-cf (* 0.7 (/ ?e ?c)))
+    (assert (dv (description the-hotel-in ?r) (value ?h) (CF ?new-cf)))
 )
 
 (defrule RATE-HOTEL::rate-hotel-by-availability-full
     (dv-numeric (description how-many-people) (value ?p))
-    (hotel (name ?hn) (resort ?r) (empty ?a&:(< ?a ?p)))
+    (hotel (name ?h) (resort ?r) (empty ?e&:(< ?e ?p)))
 =>
-    (assert (dv (description the-hotel-in ?r) (value ?hn) (CF -1.0)))
+    (assert (dv (description the-hotel-in ?r) (value ?h) (CF -1.0)))
 )
 
+;;******************************
+;;* MODULE BUILD-AND-RATE-TRIP *
+;;******************************
 
-;;********************
-;;* MODULE RATE-PATH *
-;;********************
+(defmodule BUILD-AND-RATE-TRIP (import COMMON ?ALL) (import HOTEL ?ALL) (import TRIP ?ALL))
 
-(defmodule RATE-PATH (import COMMON ?ALL) (import PATH ?ALL))
+;;;;;; ON-ENTER AND ON-EXIT ;;;;;;;;
 
-(defrule RATE-PATH::rate-path-by-resorts
-    (path (resorts-list $?rl ?r $?rr) (length ?len))
-    (dv (description visit-resort) (value ?r) (CF ?rcf))
-=> 
-    (bind ?pcf (/ ?rcf ?len))
-    (assert (dv (description the-path-is) (value ?rl ?r ?rr) (CF ?pcf)))
-)
+(defrule BUILD-AND-RATE-TRIP::on-enter
+    (declare (salience 1000))
+    (not (must-build-trip))
+=>
+    (assert (must-build-trip))
+) 
 
+(defrule BUILD-AND-RATE-TRIP::on-exit
+    (declare (salience -1000))
+    ?fact <- (must-build-trip)
+=>
+    (retract ?fact)
+) 
 
-(defrule RATE-PATH::rate-path-by-routes
-    (path (resorts-list $?rl ?rs ?rd $?rr) (length ?len))
-    (dv (description use-route) (value ?rs ?rd) (CF ?rcf))
-=>  
-    (bind ?pcf (/ ?rcf ?len))
-    (assert (dv (description the-path-is) (value ?rl ?rs ?rd ?rr) (CF ?pcf)))
-)
+;;;;;;;;; RULES FOR BUILDING TRIPS ;;;;;;;;
 
-(defrule RATE-PATH::rate-path-by-hotels
-    (path (resorts-list $?rl ?r $?rr) (length ?len))
-    (dv (description the-hotel-in ?r) (value ?h) (CF ?hcf))
-    (not (dv (description the-hotel-in ?r) (value ?h2&~h) (CF ?hcf2&:(> ?hcf2 ?hcf)))) 
-=> 
-    (bind ?pcf (/ ?hcf ?len))
-    (assert (dv (description the-path-is) (value ?rl ?r ?rr) (CF ?pcf)))
-)
-
-(defrule RATE-PATH::rate-path-by-length
-    (path (resorts-list $?rl ?r $?rr) (length ?len))
-    (dv-numeric (description the-path-length) (value ?pl))
-=> 
-    (bind ?pcf (- 0.7 (* (abs (- ?pl ?len)) 0.4)))
-    (assert (dv (description the-path-is) (value ?rl ?r ?rr) (CF ?pcf)))
-)
-
-
-;;************************
-;;* MODULE RATE-DURATION *
-;;************************
-
-(defmodule RATE-DURATION (import COMMON ?ALL) (import RESORT ?ALL) (import HOTEL ?ALL) (import PATH ?ALL) (import TRIP ?ALL))
-
-  
-(defrule RATE-DURATION::rate-duration
-    (path (resorts-list $?rl ?r $?rr) (length ?len))
+(defrule BUILD-AND-RATE-TRIP::build-trip
+    (declare (salience 500))
+    (must-build-trip)
+    (path (resorts $?rs) (length ?len))
     (duration (days $?ds) (length ?len))
-    (dv (description visit-resort) (value ?r) (CF ?rcf))
-    (dv (description the-hotel-in ?r) (value ?h) (CF ?hcf))
-    (not (dv (description the-resort in ?r) (value ?h2&~h) (CF ?hcf2&:(> ?hcf2 ?hcf))))
-    (dv-numeric (description trip-duration) (value ?td))
 =>
+    (assert (trip (resorts ?rs) (days ?ds) (length ?len)))
+)
+
+(defrule BUILD-AND-RATE-TRIP::fill-trip-hotels-and-costs
+    (declare (salience 500))
+    ?t <- (trip (resorts $?rl ?r $?rr) (costs $?cs) (days $?ds))
+    (test (eq (nth (member$ ?r (create$ ?rl ?r ?rr)) ?cs) 0))
+    (dv-numeric (description the-hotel-in ?r) (value ?h) (CF ?hcf))
+    (not (dv-numeric (description the-hotel-in ?r) (value ?h2&~?h) (CF ?hcf2&:(> ?hcf2 ?hcf))))
+    (hotel (name ?h) (resort ?r) (stars ?s))
+    (dv-numeric (description how-many-people) (value ?p))
+=>
+    (bind ?index (member$ ?r (create$ $?rl ?r $?rr)))
+    (bind ?daily-cost (+ 50 (* ?s 25)))
+    (bind ?cost-all-people (* (div ?p 2) ?daily-cost))
+    (bind ?cost-all-days (* (nth ?index ?ds) ?cost-all-people))
+    (modify ?t (hotels) (costs (replace$ ?cs ?index ?index ?cost-all-days)))
+)
+
+;;;;;;;;; RULES FOR RATING TRIPS ;;;;;;;;;;
+
+
+(defrule BUILD-AND-RATE-TRIP::rate-trip-by-resorts
+    (trip (trip-id ?id) (resorts $?rl ?r $?rr) (days $?ds) (length ?len))
+    (dv (description visit-resort) (value ?r) (CF ?rcf))
+    (dv (description the-trip-duration) (value ?td))
+=> 
     (bind ?index (member$ ?r (create$ ?rl ?r ?rr)))
     (bind ?d (nth ?index ?ds))
-    (bind ?min-cf (min ?rcf ?hcf))
-    (assert (dv (description the-path-days-for ?rl ?r ?rr) (value ?ds) (CF (* ?min-cf (/ ?d ?td)))))
-) 
+    (bind ?tcf (/ (* ?d ?rcf) (* ?td ?len)))
+    (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
+)
 
+(defrule BUILD-AND-RATE-TRIP::rate-trip-by-routes
+    (trip (trip-id ?id) (resorts $?rl ?rs ?rd $?rr) (length ?len))
+    (dv (description use-route) (value ?rs ?rd) (CF ?rcf))
+=>  
+    (bind ?tcf (/ ?rcf (- ?len 1)))       ;;len resorts imply len-1 routes
+    (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
+)
+
+(defrule BUILD-AND-RATE-TRIP::rate-trip-by-hotels 
+    (trip (trip-id ?id) (resorts $?rl ?r $?rr) (days $?ds) (length ?len))
+    (dv (description the-hotel-in ?r) (value ?h) (CF ?hcf))
+    (not (dv (description the-hotel-in ?r) (value ?h2&~?h) (CF ?hcf2&:(> ?hcf2 ?hcf))))  ;;;; NOT USEFUL, WE ALREADY HAVE THE HOTELS IN WICH WE STAY
+    (dv (description the-trip-duration) (value ?td))
     
-(defrule RATE-DURATION::plsstop
-    (declare (salience -500))
+=>  (bind ?index (member$ ?r (create$ ?rl ?r ?rr)))
+    (bind ?d (nth ?index ?ds))
+    (bind ?tcf (/ (* ?d ?hcf) (* ?td ?len)))
+    (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
+)
+
+(defrule BUILD-AND-RATE-TRIP::rate-trip-by-length
+    (trip (trip-id ?id) (length ?len))
+    (dv-numeric (description the-trip-length) (value ?tl))
+=> 
+    (bind ?tcf (- 0.7 (* (abs (- ?tl ?len)) 0.4)))
+    (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
+)
+
+(defrule BUILD-AND-RATE-TRIP::rate-trip-by-total-cost
+    (trip (trip-id ?id) (costs $?cs))
+    (dv (description the-max-cost) (value ?mc))
+=>
+    (bind ?total-cost (+ (expand$ ?cs) 0))
+    (bind ?tcf (min 0.7 (max -0.9 (/ (- ?total-cost ?mc) 100.0))))    ;;every 100 euros we decrease by 0.1
+    (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
+)
+
+
+;;(defrule BUILD-AND-RATE-TRIP::rate-trip-by-start-resort
+;;)
+;;
+;;(defrule BUILD-AND-RATE-TRIP::rate-trip-by-end-resort
+;;)
+
+
+;;************************
+;;* MODULE PRINT-RESULTS *
+;;************************
+  
+(defmodule PRINT-RESULTS (import TRIP ?ALL))
+
+(defrule PRINT-RESULTS::plsstop
+    (declare (salience -1000))
 =>
     (halt)
-    (refresh refresh-test)
 ) 
-  
-defmodule PRINT-RESULTS
-
-(defrule
-
 
  
 
