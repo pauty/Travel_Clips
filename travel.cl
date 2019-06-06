@@ -3,7 +3,7 @@
 ;;****************
 
 (deffacts MAIN::define-phase-sequence
-(phase-sequence QUESTION QUESTION-INFERENCE INIT REFRESH RATE-RESORT RATE-HOTEL BUILD-AND-RATE-TRIP)
+(phase-sequence QUESTION QUESTION-INFERENCE INIT REFRESH RATE-RESORT RATE-HOTEL BUILD-AND-RATE-TRIP PRINT-RESULTS)
 )
 
 (defrule MAIN::change-phase
@@ -19,20 +19,22 @@
 ;;* MODULE COMMON  *
 ;;******************
 
-(defmodule COMMON (export deftemplate dv dv-numeric))
+(defmodule COMMON (export ?ALL))
 
-(deftemplate COMMON::dv 
-   (multislot description)
-   (multislot value)
-   (slot CF (default 100.0))
-   (slot basic (default FALSE))
+(deftemplate COMMON::dv-iteration
+    (slot number (type INTEGER))
 )
 
-(deftemplate COMMON::dv-numeric
-   (multislot description)
-   (multislot value (type INTEGER))
-   (slot CF (default 100.0))
-   (slot basic (default FALSE))
+(deftemplate COMMON::dv 
+    (slot iteration (type INTEGER) (default -1)) ;;An iteration value of -1 is for non-basic dv only
+    (multislot description)
+    (multislot value)
+    (slot CF (default 100.0))
+    (slot basic (default FALSE))  ;;A basic dv must be reasserted at every iteration. A non-basic one must be removed
+)
+
+(deffacts COMMON::first-dv-iteration
+    (dv-iteration (number 0))
 )
 
 ;;;;;;;;; COMBINE CERTAINTIES ;;;;;;;;
@@ -103,7 +105,7 @@
   (question (preference-topic culture)
             (the-question "Ti interessa la cultura?")
             (valid-answers no sometimes yes))
-  (question (preference-topic people-num)
+  (question (preference-topic people-number)
             (type range)
             (the-question "In quanti siete a viaggiare?")
             (valid-answers 1 10))
@@ -111,7 +113,7 @@
             (type range)
             (the-question "Massima distanza? (compresa fra 25 e 100 km)")
             (valid-answers 25 100))
-  (question (preference-topic duration)
+  (question (preference-topic trip-duration)
             (type range)
             (the-question "Quanti giorni? (compreso fra 3 e 20")
             (valid-answers 3 20))
@@ -171,76 +173,86 @@
 
 (defrule QUESTION-INFERENCE::temperature-warm
     (preference (topic temperature) (answer-value warm))
+    (dv-iteration (number ?i))
 =>
-    (assert (dv (description tourism-type-is) (value sea) (CF 0.4) (basic TRUE)))
-    (assert (dv (description tourism-type-is) (value mountain) (CF -0.4) (basic TRUE))) 
+    (assert (dv (iteration ?i) (description the-tourism-type) (value sea) (CF 0.4) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-tourism-type) (value mountain) (CF -0.4) (basic TRUE))) 
 )
     
 (defrule QUESTION-INFERENCE::temperature-cool
     (preference (topic temperature) (answer-value cool))
+    (dv-iteration (number ?i))
 =>
-    (assert (dv (description tourism-type-is) (value mountain) (CF 0.4) (basic TRUE)))
-    (assert (dv (description tourism-type-is) (value sea) (CF -0.4) (basic TRUE))) 
+    (assert (dv (iteration ?i) (description the-tourism-type) (value mountain) (CF 0.4) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-tourism-type) (value sea) (CF -0.4) (basic TRUE))) 
 )
 
     
 (defrule QUESTION-INFERENCE::culture-yes
     (preference (topic culture) (answer-value yes))
+    (dv-iteration (number ?i))
 =>
-    (assert (dv (description tourism-type-is) (value cultural) (CF 0.8) (basic TRUE)))
-    (assert (dv (description tourism-type-is) (value religious) (CF 0.5) (basic TRUE))) 
+    (assert (dv (iteration ?i) (description the-tourism-type) (value cultural) (CF 0.8) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-tourism-type) (value religious) (CF 0.5) (basic TRUE))) 
 )
 
 (defrule QUESTION-INFERENCE::culture-no
     (preference (topic culture) (answer-value no))
+    (dv-iteration (number ?i))
 =>
-    (assert (dv (description tourism-type-is) (value cultural) (CF -0.8) (basic TRUE)))
-    (assert (dv (description tourism-type-is) (value religious) (CF -0.5) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-tourism-type) (value cultural) (CF -0.8) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-tourism-type) (value religious) (CF -0.5) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::cost-cheap
     (preference (topic cost) (answer-value cheap))
+    (dv-iteration (number ?i))
 =>
-    (assert (dv-numeric (description how-many-hotel-stars) (value 1) (CF 0.6) (basic TRUE)))
-    (assert (dv-numeric (description how-many-hotel-stars) (value 2) (CF 0.2) (basic TRUE))) 
-    (assert (dv-numeric (description how-many-hotel-stars) (value 3) (CF -0.2) (basic TRUE)))
-    (assert (dv-numeric (description how-many-hotel-stars) (value 4) (CF .-0.6) (basic TRUE))) 
+    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 1) (CF 0.6) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 2) (CF 0.2) (basic TRUE))) 
+    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 3) (CF -0.2) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 4) (CF -0.6) (basic TRUE))) 
 )
 
 (defrule QUESTION-INFERENCE::cost-normal
     (preference (topic cost) (answer-value normal))
+    (dv-iteration (number ?i))
 =>
-    (assert (dv-numeric (description how-many-hotel-stars) (value 1) (CF -0.2) (basic TRUE)))
-    (assert (dv-numeric (description how-many-hotel-stars) (value 2) (CF 0.6) (basic TRUE))) 
-    (assert (dv-numeric (description how-many-hotel-stars) (value 3) (CF 0.6) (basic TRUE)))
-    (assert (dv-numeric (description how-many-hotel-stars) (value 4) (CF -0.2) (basic TRUE))) 
+    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 1) (CF -0.2) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 2) (CF 0.6) (basic TRUE))) 
+    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 3) (CF 0.6) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 4) (CF -0.2) (basic TRUE))) 
 )
 
 (defrule QUESTION-INFERENCE::cost-expensive
     (preference (topic cost) (answer-value expensive))
+    (dv-iteration (number ?i))
 =>
-    (assert (dv-numeric (description how-many-hotel-stars) (value 1) (CF -0.6) (basic TRUE)))
-    (assert (dv-numeric (description how-many-hotel-stars) (value 2) (CF -0.2) (basic TRUE))) 
-    (assert (dv-numeric (description how-many-hotel-stars) (value 3) (CF 0.2) (basic TRUE)))
-    (assert (dv-numeric (description how-many-hotel-stars) (value 4) (CF 0.6) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 1) (CF -0.6) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 2) (CF -0.2) (basic TRUE))) 
+    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 3) (CF 0.2) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 4) (CF 0.6) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::people-number
-    (preference (topic people-num) (answer-value ?v))
+    (preference (topic people-number) (answer-value ?v))
+    (dv-iteration (number ?i))
 =>
-    (assert (dv-numeric (description how-many-people) (value ?v) (CF 1.0) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-people-number) (value ?v) (CF 1.0) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::max-distance
     (preference (topic max-distance) (answer-value ?v))
+    (dv-iteration (number ?i))
 =>
-    (assert (dv-numeric (description the-max-route-distance) (value ?v) (CF 1.0) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-max-route-distance) (value ?v) (CF 1.0) (basic TRUE)))
 )
 
-(defrule QUESTION-INFERENCE::duration
-    (preference (topic duration) (answer-value ?v))
+(defrule QUESTION-INFERENCE::trip-duration
+    (preference (topic trip-duration) (answer-value ?v))
+    (dv-iteration (number ?i))
 =>
-    (assert (dv-numeric (description the-trip-duration) (value ?v) (CF 1.0) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-trip-duration) (value ?v) (CF 1.0) (basic TRUE)))
 )
 
 
@@ -402,20 +414,21 @@
 
 
 (defrule INIT::define-duration-unit
-    (dv-numeric (description the-trip-duration) (value ?d))
+    (dv (description the-trip-duration) (value ?d))
+    (dv-iteration (number ?i))
 =>
-    (assert (dv-numeric (description the-duration-unit) (value (max 1 (div ?d 10))) (CF 1.0) (basic TRUE)))
+    (assert (dv (iteration ?i) (description the-duration-unit) (value (max 1 (div ?d 7))) (CF 1.0) (basic TRUE)))
 )
 
 
 (defrule INIT::generate-singleton-duration
-    (dv-numeric (description the-trip-duration) (value ?d))
+    (dv (description the-trip-duration) (value ?d))
 =>
     (assert (duration (days ?d) (length 1)))  
 )
 
 (defrule INIT::generate-duration
-    (dv-numeric (description the-duration-unit) (value ?u))
+    (dv (description the-duration-unit) (value ?u))
     (duration (days $?ds ?d) (length ?len))
     (test (< (length$ (create$ ?ds ?d)) 5))
     (test (> ?d ?u))
@@ -424,7 +437,7 @@
 )
 
 (defrule INIT::permutate-duration
-    (dv-numeric (description the-duration-unit) (value ?u))
+    (dv (description the-duration-unit) (value ?u))
     (duration (days $?dl ?d1 ?d2 $?dr) (length ?len))
     (test (> ?d1 ?u))
 =>
@@ -438,13 +451,14 @@
 
 (defmodule REFRESH (import COMMON ?ALL) (import TRIP ?ALL))
 
+
 (defrule REFRESH::reassert-basic-dv
-    ?fact <- (dv (description $?d) (value $?v) (CF ?c) (basic TRUE))
+    (dv-iteration (number ?i))
+    ?fact <- (dv (iteration ?i) (description $?d) (value $?v) (CF ?c) (basic TRUE))
 =>  
     (retract ?fact)
-    (assert (dv (description $?d) (value $?v) (CF ?c) (basic TRUE)))
+    (assert (dv (iteration (+ ?i 1)) (description ?d) (value ?v) (CF ?c) (basic TRUE)))
 )
-
 
 (defrule REFRESH::remove-derived-dv
     ?fact <- (dv (description $?d) (value $?v) (CF ?c) (basic FALSE))
@@ -452,11 +466,19 @@
     (retract ?fact)
 )
 
-
 (defrule REFRESH::remove-trip
     ?t <- (trip)
 =>
     (retract ?t)
+)
+
+(defrule REFRESH::on-exit
+    (declare (salience -1000))
+    ?fact <- (dv-iteration (number ?i))
+=>
+    (retract ?fact)
+    (assert (dv-iteration (number (+ ?i 1))))
+    (pop-focus)
 )
 
 
@@ -469,23 +491,23 @@
 (defrule RATE-RESORT::rate-resort-uncertain
     (resort (name ?r))
 =>
-    (assert (dv (description visit-resort) (value ?r) (CF  0.0)))
+    (assert (dv (description the-resort) (value ?r) (CF  0.0)))
 )
 
 (defrule RATE-RESORT::rate-resort-by-tourism-type
-    (dv (description tourism-type-is) (value ?v) (CF ?cf))
+    (dv (description the-tourism-type) (value ?t) (CF ?cf))
     (resort (name ?r))
-    (resort-tourism (resort-name ?rn) (tourism-type ?v) (score ?s))
+    (resort-tourism (resort-name ?r) (tourism-type ?t) (score ?s))
 =>
     (bind ?rcf (/ (* ?s ?cf) 5.0))
-    (assert (dv (description visit-resort) (value ?r) (CF ?rcf)))
+    (assert (dv (description the-resort) (value ?r) (CF ?rcf)))
 )
 
 (defrule RATE-RESORT::rate-route
     (route (resort-src ?src) (resort-dst ?dst) (distance ?d))
-    (dv-numeric (description the-max-route-distance) (value ?v))
+    (dv (description the-max-route-distance) (value ?v))
 =>
-    (bind ?rcf (min 0.6 (max -0.8 (/ (- ?v ?d) 50.0))))
+    (bind ?rcf (min 0.7 (max -0.9 (/ (- ?v ?d) 75.0))))   ;; every 75 km we drecrease by 1 (capped at -0.9)
     (assert (dv (description use-route) (value ?src ?dst) (CF ?rcf))) 
 )
 
@@ -503,14 +525,14 @@
 )
 
 (defrule RATE-HOTEL::rate-hotel-by-stars
-    (dv-numeric (description how-many-hotel-stars) (value ?s) (CF ?cf))
+    (dv (description the-optimal-hotel-stars) (value ?s) (CF ?cf))
     (hotel (name ?h) (resort ?r) (stars ?s))
 =>
     (assert (dv (description the-hotel-in ?r) (value ?h) (CF ?cf)))
 )
 
 (defrule RATE-HOTEL::rate-hotel-by-availability
-    (dv-numeric (description how-many-people) (value ?p))
+    (dv (description the-people-number) (value ?p))
     (hotel (name ?h) (resort ?r) (empty ?e&:(> ?e ?p)) (capacity ?c))
 =>
     (bind ?new-cf (* 0.7 (/ ?e ?c)))
@@ -518,7 +540,7 @@
 )
 
 (defrule RATE-HOTEL::rate-hotel-by-availability-full
-    (dv-numeric (description how-many-people) (value ?p))
+    (dv (description the-people-number) (value ?p))
     (hotel (name ?h) (resort ?r) (empty ?e&:(< ?e ?p)))
 =>
     (assert (dv (description the-hotel-in ?r) (value ?h) (CF -1.0)))
@@ -544,12 +566,13 @@
     ?fact <- (must-build-trip)
 =>
     (retract ?fact)
+    (pop-focus)
 ) 
 
 ;;;;;;;;; RULES FOR BUILDING TRIPS ;;;;;;;;
 
 (defrule BUILD-AND-RATE-TRIP::build-trip
-    (declare (salience 500))
+    (declare (salience 600))
     (must-build-trip)
     (path (resorts $?rs) (length ?len))
     (duration (days $?ds) (length ?len))
@@ -559,18 +582,18 @@
 
 (defrule BUILD-AND-RATE-TRIP::fill-trip-hotels-and-costs
     (declare (salience 500))
-    ?t <- (trip (resorts $?rl ?r $?rr) (costs $?cs) (days $?ds))
+    ?t <- (trip (resorts $?rl ?r $?rr) (hotels $?hs) (days $?ds) (costs $?cs))
     (test (eq (nth (member$ ?r (create$ ?rl ?r ?rr)) ?cs) 0))
-    (dv-numeric (description the-hotel-in ?r) (value ?h) (CF ?hcf))
-    (not (dv-numeric (description the-hotel-in ?r) (value ?h2&~?h) (CF ?hcf2&:(> ?hcf2 ?hcf))))
+    (dv (description the-hotel-in ?r) (value ?h) (CF ?hcf))
+    (not (dv (description the-hotel-in ?r) (value ?h2&~?h) (CF ?hcf2&:(> ?hcf2 ?hcf))))
     (hotel (name ?h) (resort ?r) (stars ?s))
-    (dv-numeric (description how-many-people) (value ?p))
+    (dv (description the-people-number) (value ?p))
 =>
-    (bind ?index (member$ ?r (create$ $?rl ?r $?rr)))
+    (bind ?index (member$ ?r (create$ ?rl ?r ?rr)))
     (bind ?daily-cost (+ 50 (* ?s 25)))
     (bind ?cost-all-people (* (div ?p 2) ?daily-cost))
     (bind ?cost-all-days (* (nth ?index ?ds) ?cost-all-people))
-    (modify ?t (hotels) (costs (replace$ ?cs ?index ?index ?cost-all-days)))
+    (modify ?t (hotels (replace$ ?hs ?index ?index ?h)) (costs (replace$ ?cs ?index ?index ?cost-all-days)))
 )
 
 ;;;;;;;;; RULES FOR RATING TRIPS ;;;;;;;;;;
@@ -578,7 +601,7 @@
 
 (defrule BUILD-AND-RATE-TRIP::rate-trip-by-resorts
     (trip (trip-id ?id) (resorts $?rl ?r $?rr) (days $?ds) (length ?len))
-    (dv (description visit-resort) (value ?r) (CF ?rcf))
+    (dv (description the-resort) (value ?r) (CF ?rcf))
     (dv (description the-trip-duration) (value ?td))
 => 
     (bind ?index (member$ ?r (create$ ?rl ?r ?rr)))
@@ -596,11 +619,10 @@
 )
 
 (defrule BUILD-AND-RATE-TRIP::rate-trip-by-hotels 
-    (trip (trip-id ?id) (resorts $?rl ?r $?rr) (days $?ds) (length ?len))
+    (trip (trip-id ?id) (resorts $?rl ?r $?rr) (hotels $?hs) (days $?ds) (length ?len))
     (dv (description the-hotel-in ?r) (value ?h) (CF ?hcf))
-    (not (dv (description the-hotel-in ?r) (value ?h2&~?h) (CF ?hcf2&:(> ?hcf2 ?hcf))))  ;;;; NOT USEFUL, WE ALREADY HAVE THE HOTELS IN WICH WE STAY
+    (test (eq ?h (nth (member$ ?r (create$ ?rl ?r ?rr)) ?hs))) 
     (dv (description the-trip-duration) (value ?td))
-    
 =>  (bind ?index (member$ ?r (create$ ?rl ?r ?rr)))
     (bind ?d (nth ?index ?ds))
     (bind ?tcf (/ (* ?d ?hcf) (* ?td ?len)))
@@ -609,7 +631,7 @@
 
 (defrule BUILD-AND-RATE-TRIP::rate-trip-by-length
     (trip (trip-id ?id) (length ?len))
-    (dv-numeric (description the-trip-length) (value ?tl))
+    (dv (description the-trip-length) (value ?tl))
 => 
     (bind ?tcf (- 0.7 (* (abs (- ?tl ?len)) 0.4)))
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
