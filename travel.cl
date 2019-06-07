@@ -3,7 +3,7 @@
 ;;****************
 
 (deffacts MAIN::define-phase-sequence
-(phase-sequence QUESTION QUESTION-INFERENCE INIT REFRESH RATE-RESORT RATE-HOTEL BUILD-AND-RATE-TRIP PRINT-RESULTS)
+(phase-sequence ASK-QUESTION QUESTION-INFERENCE INIT REFRESH RATE-RESORT RATE-HOTEL BUILD-AND-RATE-TRIP PRINT-RESULTS)
 )
 
 (defrule MAIN::change-phase
@@ -21,7 +21,7 @@
 
 (defmodule COMMON (export ?ALL))
 
-(deftemplate COMMON::dv-iteration
+(deftemplate COMMON::iteration
     (slot number (type INTEGER))
 )
 
@@ -33,8 +33,10 @@
     (slot basic (default FALSE))  ;;A basic dv must be reasserted at every iteration. A non-basic one must be removed
 )
 
-(deffacts COMMON::first-dv-iteration
-    (dv-iteration (number 0))
+(deffacts COMMON::first-iteration
+    (iteration (number 0))
+    (dv (iteration 0) (description banned) (value ) (CF 1.0) (basic TRUE))
+    (dv (iteration 0) (description preferred) (value ) (CF 1.0) (basic TRUE))
 )
 
 ;;;;;;;;; COMBINE CERTAINTIES ;;;;;;;;
@@ -78,89 +80,157 @@
 ;;* MODULE QUESTION *
 ;;********************
 
-(defmodule QUESTION (export deftemplate preference))
+(defmodule QUESTION (export ?ALL))
 
 (deftemplate QUESTION::preference
-   (slot topic)
-   (slot answer-value)
+    (slot topic)
+    (slot answer-value)
 )
 
 (deftemplate QUESTION::question
-   (slot preference-topic (default ?NONE))
-   (slot type (default closed))
-   (slot the-question (default ?NONE))
-   (multislot valid-answers (default ?NONE))
-   (slot already-asked (default FALSE))
-   (multislot precursors (default ?DERIVE))
+    (slot iteration (type INTEGER))  ;;the first iteration in which we are allowed to ask the question
+    (slot type (default closed))
+    (slot skippable (default TRUE))
+    (slot preference-topic (default ?NONE))
+    (slot the-question (default ?NONE))
+    (multislot valid-answers (default ?NONE))
+    (slot already-asked (default FALSE))
+    (multislot precursors)
 )
-   
+
+;;;;;;;;;;;;;;; FACTS ;;;;;;;;;;;;;;;;;;
+
 
 (deffacts QUESTION::questions-list
-  (question (preference-topic temperature)
-            (the-question "Posti caldi o freddi?")
-            (valid-answers cool both warm))
-  (question (preference-topic cost)
-            (the-question "Viaggio economico o lussuoso?")
-            (valid-answers cheap budget normal expensive very-expensive))
-  (question (preference-topic culture)
-            (the-question "Ti interessa la cultura?")
-            (valid-answers no sometimes yes))
-  (question (preference-topic people-number)
+    (question (the-question "How many days? (between 3 and 30 days) ")
+            (preference-topic trip-duration)
+            (iteration 0)
+            (skippable FALSE)
             (type range)
-            (the-question "In quanti siete a viaggiare?")
+            (valid-answers 3 30))
+    (question (the-question "How many people want to go on vacation? (between 1 and 10 people) ") 
+            (preference-topic people-number)
+            (iteration 0)
+            (skippable FALSE)
+            (type range)
             (valid-answers 1 10))
-  (question (preference-topic max-distance)
+    ;;--------------------------------------------
+    (question (the-question "What is the maximum distance that you are willing to travel between two resorts? (between 10 ad 100 km) ")
+            (preference-topic max-distance)
+            (iteration 1)
             (type range)
-            (the-question "Massima distanza? (compresa fra 25 e 100 km)")
-            (valid-answers 25 100))
-  (question (preference-topic trip-duration)
+            (valid-answers 10 100))
+    (question (the-question "Do you prefer to spend an equal amount of time in all the places you will visit? [yes, no] ")
+            (preference-topic days-partitioning)
+            (iteration 1)
+            (valid-answers yes no))
+    (question (the-question "How many places would you like to visit during your vacation? (between 2 and 5 resorts) ")
+            (preference-topic trip-length)
+            (iteration 1)
             (type range)
-            (the-question "Quanti giorni? (compreso fra 3 e 20")
-            (valid-answers 3 20))
+            (valid-answers 1 5))
+    (question (the-question "Would you like to visit more than one resort? [yes, no] ")
+            (preference-topic trip-length-generic)
+            (iteration 1)
+            (skippable FALSE)
+            (valid-answers yes no))
+    ;;----------------------------------------------
+    (question (the-question "Do you generally prefer cool or warm places? [cool, both, warm]")
+            (iteration 1)
+            (preference-topic temperature)
+            (valid-answers cool both warm))
+    (question (the-question "Do you like to swim? [no, indifferent, yes]")
+            (preference-topic swim)
+            (iteration 1)
+            (valid-answers no indifferent yes))
+    (question (the-question "How much it is important for you to eat at good places? (between 1 and 10) ")
+            (preference-topic food)
+            (iteration 1)
+            (type range)
+            (valid-answers 1 10))
+    (question (the-question "Are you interested in places that are relevant from a religious point of view? ")
+            (preference-topic religion)
+            (iteration 1)
+            (valid-answers none low medium high))               
+    (question (the-question "Do you value a resort more for its naturalistic beauty than for its attractions? [yes no] ")
+            (preference-topic value)
+            (iteration 1)
+            (valid-answers yes no))       
+    (question (the-question "When on vacation, do you prefer to relax or to be phisically active? [relax, both, active] ")
+            (preference-topic sport)
+            (iteration 1)
+            (valid-answers relax both active))
+    (question (the-question "Do you prefer a ?")
+            (preference-topic cost)
+            (iteration 1)
+            (valid-answers very-cheap cheap normal expensive very-expensive))
+    (question (the-question "Do you like to visit museums, ? [yes, sometimes, rarely, no] ")
+            (preference-topic culture)
+            (iteration 1)
+            (valid-answers yes sometimes rarely no))
 ) 
 
+
+(defmodule ASK-QUESTION (import COMMON ?ALL) (import QUESTION ?ALL))
+
+
+;;(defrule ASK-QUESTION::precursor-is-satisfied
+;;   ?f <- (question (already-asked FALSE)
+;;                   (precursors ?name is ?value $?rest))
+;;         (preference (topic ?name) (value ?value))
+;;   =>
+;;   (if (eq (nth 1 ?rest) and) 
+;;    then (modify ?f (precursors (rest$ ?rest)))
+;;    else (modify ?f (precursors ?rest))))
+
+
+
 ;; *********the ask function********
-(deffunction QUESTION::ask-closed-question (?question ?allowed-values)
-   (printout t ?question)
-   (bind ?answer (read))
-   (if (lexemep ?answer) then (bind ?answer (lowcase ?answer)))
-   (while (not (member ?answer ?allowed-values)) do
-      (printout t ?question)
-      (bind ?answer (read))
-      (if (lexemep ?answer) then (bind ?answer (lowcase ?answer))))
-   ?answer
+(deffunction ASK-QUESTION::ask-closed-question (?question ?allowed-values)
+    (printout t ?question)
+    (bind ?answer (read))
+    (if (lexemep ?answer) then (bind ?answer (lowcase ?answer)))
+    (while (not (member ?answer ?allowed-values)) do
+        (printout t ?question)
+        (bind ?answer (read))
+        (if (lexemep ?answer) then (bind ?answer (lowcase ?answer))))
+    ?answer
 )
    
 ;; *********the ask function********
-(deffunction QUESTION::ask-range-question (?question ?min ?max)
-   (printout t ?question)
-   (bind ?answer (read))
-   (while (or (not (numberp ?answer)) (< ?answer ?min) (> ?answer ?max)) do
-      (printout t ?question)
-      (bind ?answer (read)))
-   ?answer
+(deffunction ASK-QUESTION::ask-range-question (?question ?min ?max)
+    (printout t ?question)
+    (bind ?answer (read))
+    (while (and (neq ?answer nil) (or (not (numberp ?answer)) (< ?answer ?min) (> ?answer ?max))) do
+        (printout t ?question)
+        (bind ?answer (read)))
+    (round ?answer)
 )
 
-(defrule QUESTION::ask-a-closed-question
-   ?fact <- (question (already-asked FALSE)
-                   (type closed)
-                   (the-question ?q)
-                   (preference-topic ?pt)
-                   (valid-answers $?va))
+(defrule ASK-QUESTION::ask-a-closed-question
+    (iteration (number ?i))
+    ?fact <- (question (iteration ?i)
+                    (already-asked FALSE)
+                    (type closed)
+                    (the-question ?q)
+                    (preference-topic ?pt)
+                    (valid-answers $?va))
 =>
-   (modify ?fact (already-asked TRUE))
-   (assert (preference (topic ?pt) (answer-value (ask-closed-question ?q ?va))))
+    (modify ?fact (already-asked TRUE))
+    (assert (preference (topic ?pt) (answer-value (ask-closed-question ?q ?va))))
 )
 
-(defrule QUESTION::ask-a-range-question
-   ?fact <- (question (already-asked FALSE)
+(defrule ASK-QUESTION::ask-a-range-question
+    (iteration (number ?i))
+    ?fact <- (question (iteration ?i)
+                   (already-asked FALSE)
                    (type range)
                    (the-question ?q)
                    (preference-topic ?pt)
                    (valid-answers ?min ?max))
 =>
-   (modify ?fact (already-asked TRUE))
-   (assert (preference (topic ?pt) (answer-value (ask-range-question ?q ?min ?max))))
+    (modify ?fact (already-asked TRUE))
+    (assert (preference (topic ?pt) (answer-value (ask-range-question ?q ?min ?max))))
 )
    
 
@@ -173,7 +243,7 @@
 
 (defrule QUESTION-INFERENCE::temperature-warm
     (preference (topic temperature) (answer-value warm))
-    (dv-iteration (number ?i))
+    (iteration (number ?i))
 =>
     (assert (dv (iteration ?i) (description the-tourism-type) (value sea) (CF 0.4) (basic TRUE)))
     (assert (dv (iteration ?i) (description the-tourism-type) (value mountain) (CF -0.4) (basic TRUE))) 
@@ -181,7 +251,7 @@
     
 (defrule QUESTION-INFERENCE::temperature-cool
     (preference (topic temperature) (answer-value cool))
-    (dv-iteration (number ?i))
+    (iteration (number ?i))
 =>
     (assert (dv (iteration ?i) (description the-tourism-type) (value mountain) (CF 0.4) (basic TRUE)))
     (assert (dv (iteration ?i) (description the-tourism-type) (value sea) (CF -0.4) (basic TRUE))) 
@@ -190,7 +260,7 @@
     
 (defrule QUESTION-INFERENCE::culture-yes
     (preference (topic culture) (answer-value yes))
-    (dv-iteration (number ?i))
+    (iteration (number ?i))
 =>
     (assert (dv (iteration ?i) (description the-tourism-type) (value cultural) (CF 0.8) (basic TRUE)))
     (assert (dv (iteration ?i) (description the-tourism-type) (value religious) (CF 0.5) (basic TRUE))) 
@@ -198,7 +268,7 @@
 
 (defrule QUESTION-INFERENCE::culture-no
     (preference (topic culture) (answer-value no))
-    (dv-iteration (number ?i))
+    (iteration (number ?i))
 =>
     (assert (dv (iteration ?i) (description the-tourism-type) (value cultural) (CF -0.8) (basic TRUE)))
     (assert (dv (iteration ?i) (description the-tourism-type) (value religious) (CF -0.5) (basic TRUE)))
@@ -206,7 +276,7 @@
 
 (defrule QUESTION-INFERENCE::cost-cheap
     (preference (topic cost) (answer-value cheap))
-    (dv-iteration (number ?i))
+    (iteration (number ?i))
 =>
     (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 1) (CF 0.6) (basic TRUE)))
     (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 2) (CF 0.2) (basic TRUE))) 
@@ -216,7 +286,7 @@
 
 (defrule QUESTION-INFERENCE::cost-normal
     (preference (topic cost) (answer-value normal))
-    (dv-iteration (number ?i))
+    (iteration (number ?i))
 =>
     (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 1) (CF -0.2) (basic TRUE)))
     (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 2) (CF 0.6) (basic TRUE))) 
@@ -226,7 +296,7 @@
 
 (defrule QUESTION-INFERENCE::cost-expensive
     (preference (topic cost) (answer-value expensive))
-    (dv-iteration (number ?i))
+    (iteration (number ?i))
 =>
     (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 1) (CF -0.6) (basic TRUE)))
     (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 2) (CF -0.2) (basic TRUE))) 
@@ -236,21 +306,21 @@
 
 (defrule QUESTION-INFERENCE::people-number
     (preference (topic people-number) (answer-value ?v))
-    (dv-iteration (number ?i))
+    (iteration (number ?i))
 =>
     (assert (dv (iteration ?i) (description the-people-number) (value ?v) (CF 1.0) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::max-distance
     (preference (topic max-distance) (answer-value ?v))
-    (dv-iteration (number ?i))
+    (iteration (number ?i))
 =>
     (assert (dv (iteration ?i) (description the-max-route-distance) (value ?v) (CF 1.0) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::trip-duration
     (preference (topic trip-duration) (answer-value ?v))
-    (dv-iteration (number ?i))
+    (iteration (number ?i))
 =>
     (assert (dv (iteration ?i) (description the-trip-duration) (value ?v) (CF 1.0) (basic TRUE)))
 )
@@ -349,7 +419,7 @@
 (deftemplate TRIP::trip
     (slot trip-id (default-dynamic (gensym*)))
     (multislot resorts)
-    (multislot hotels (default NULL NULL NULL NULL NULL))
+    (multislot hotels (default ND ND ND ND ND))
     (multislot days (type INTEGER))
     (multislot costs (type INTEGER) (default 0 0 0 0 0))
     (slot length (type INTEGER))
@@ -415,7 +485,7 @@
 
 (defrule INIT::define-duration-unit
     (dv (description the-trip-duration) (value ?d))
-    (dv-iteration (number ?i))
+    (iteration (number ?i))
 =>
     (assert (dv (iteration ?i) (description the-duration-unit) (value (max 1 (div ?d 7))) (CF 1.0) (basic TRUE)))
 )
@@ -453,7 +523,7 @@
 
 
 (defrule REFRESH::reassert-basic-dv
-    (dv-iteration (number ?i))
+    (iteration (number ?i))
     ?fact <- (dv (iteration ?i) (description $?d) (value $?v) (CF ?c) (basic TRUE))
 =>  
     (retract ?fact)
@@ -474,10 +544,10 @@
 
 (defrule REFRESH::on-exit
     (declare (salience -1000))
-    ?fact <- (dv-iteration (number ?i))
+    ?fact <- (iteration (number ?i))
 =>
     (retract ?fact)
-    (assert (dv-iteration (number (+ ?i 1))))
+    (assert (iteration (number (+ ?i 1))))
     (pop-focus)
 )
 
@@ -658,16 +728,63 @@
 ;;* MODULE PRINT-RESULTS *
 ;;************************
   
-(defmodule PRINT-RESULTS (import TRIP ?ALL))
+(defmodule PRINT-RESULTS (import COMMON ?ALL) (import TRIP ?ALL))
+
+(defrule PRINT-RESULTS::on-enter
+    (declare (salience 500))
+    (not (printed-trips ?p))
+=>
+    (assert (printed-trips 1))
+)
+
+(defrule PRINT-RESULTS::on-exit
+    (declare (salience -500))
+    ?fact <- (printed-trips ?p)
+=>
+    (retract ?fact)
+    (pop-focus)
+)
+
+
+(defrule PRINT-RESULTS::results-header
+   (declare (salience 10))
+   (printed-trips 1)
+   (iteration (number ?i))
+   =>
+   (printout t  crlf crlf)
+   (printout t " >>>>>>>>>>>>>>>   SELECTED TRIPS (ITERATION " ?i ")  <<<<<<<<<<<<<<<"  crlf)
+   (printout t  crlf)
+)
+   
+
+(defrule PRINT-RESULTS::print-and-remove-best-trip 
+  ?fact1 <- (printed-trips ?p)
+  (test (<= ?p 5))
+  ?fact2 <- (dv (description the-trip) (value ?tid) (CF ?tcf))	
+  (not (dv (description the-trip) (value ?tid2&~?tid) (CF ?tcf2&:(> ?tcf2 ?tcf))))
+  (test (> ?tcf 0.35))
+  (trip (trip-id ?tid) (resorts $?rs) (hotels $?hs) (days $?ds) (costs $?cs) (length ?len))
+  =>
+  (retract ?fact1)
+  (assert (printed-trips (+ ?p 1)))
+  (retract ?fact2)
+  (bind ?total-cost (+ (expand$ ?cs) 0))
+  (printout t  crlf)
+  (bind ?l (+ ?len 1))
+  (printout t " Trip suggestion " ?p " with certainty: " (round (* ?tcf 100)) "%" crlf)
+  (printout t "  - Resorst to visit: " ?rs crlf)
+  (printout t "  - Hotels: " (delete$ ?hs ?l 5 ) crlf)
+  (printout t "  - Days partitioning: " ?ds crlf)
+  (printout t "  - Daily costs: " (delete$ ?cs ?l 5 ) "  |  Total cost: " ?total-cost crlf) 
+  (printout t  crlf)
+  (printout t "       _________________________________________________" crlf)
+  (printout t  crlf)
+) 
+   
 
 (defrule PRINT-RESULTS::plsstop
-    (declare (salience -1000))
+    (declare (salience -200))
 =>
     (halt)
 ) 
 
- 
-
-  
-
-  
