@@ -3,7 +3,7 @@
 ;;****************
 
 (deffacts MAIN::define-phase-sequence
-(phase-sequence ASK-QUESTION QUESTION-INFERENCE INIT REFRESH RATE-RESORT RATE-HOTEL BUILD-AND-RATE-TRIP PRINT-RESULTS)
+(phase-sequence ASK-QUESTION QUESTION-INFERENCE INIT RATE-RESORT RATE-HOTEL BUILD-AND-RATE-TRIP PRINT-RESULTS INVALIDATE REFRESH)
 )
 
 (defrule MAIN::change-phase
@@ -26,17 +26,17 @@
 )
 
 (deftemplate COMMON::dv 
-    (slot iteration (type INTEGER) (default -1)) ;;An iteration value of -1 is for non-basic dv only
     (multislot description)
     (multislot value)
     (slot CF (default 100.0))
-    (slot basic (default FALSE))  ;;A basic dv must be reasserted at every iteration. A non-basic one must be removed
+    (slot basic (default FALSE))   ;;A basic dv must be reasserted at every iteration. A non-basic one must be removed
+    (slot updated (default TRUE))  ;;Every dv is considered updated at creation; it is needed in phases INVALIDATE and REFRESH
 )
 
 (deffacts COMMON::first-iteration
     (iteration (number 0))
-    (dv (iteration 0) (description banned) (value ) (CF 1.0) (basic TRUE))
-    (dv (iteration 0) (description preferred) (value ) (CF 1.0) (basic TRUE))
+    (dv (description banned) (value ) (CF 1.0) (basic TRUE))
+    (dv (description preferred) (value ) (CF 1.0) (basic TRUE))
 )
 
 ;;;;;;;;; COMBINE CERTAINTIES ;;;;;;;;
@@ -84,7 +84,7 @@
 
 (deftemplate QUESTION::preference
     (slot topic)
-    (slot answer-value)
+    (multislot answer-value)
 )
 
 (deftemplate QUESTION::question
@@ -93,146 +93,203 @@
     (slot skippable (default TRUE))
     (slot preference-topic (default ?NONE))
     (slot the-question (default ?NONE))
-    (multislot valid-answers (default ?NONE))
+    (multislot valid-answers)
     (slot already-asked (default FALSE))
     (multislot precursors)
 )
 
+
 ;;;;;;;;;;;;;;; FACTS ;;;;;;;;;;;;;;;;;;
 
-
 (deffacts QUESTION::questions-list
-    (question (the-question "How many days? (between 3 and 30 days) ")
+    (question (the-question "How many people want to go on vacation? (between 1 and 10 people) ") 
+            (preference-topic people-number)
+            (iteration 0) 
+            (skippable FALSE)
+            (type range)
+            (valid-answers 1 10))
+    (question (the-question "How many days? (between 5 and 30 days) ")
             (preference-topic trip-duration)
             (iteration 0)
             (skippable FALSE)
             (type range)
-            (valid-answers 3 30))
-    (question (the-question "How many people want to go on vacation? (between 1 and 10 people) ") 
-            (preference-topic people-number)
-            (iteration 0)
-            (skippable FALSE)
-            (type range)
-            (valid-answers 1 10))
+            (valid-answers 5 30))
+    (question (the-question "Are you looking for a cheap trip or a luxurious and more expensive one? [cheap, normal, expensive] ")
+            (preference-topic cost)
+            (iteration 0) 
+            (valid-answers cheap normal expensive))
+    (question (the-question "Do you generally prefer cool or warm places? [cool, both, warm] ")            
+            (preference-topic temperature)
+            (iteration 0) 
+            (valid-answers cool both warm))
     ;;--------------------------------------------
-    (question (the-question "What is the maximum distance that you are willing to travel between two resorts? (between 10 ad 100 km) ")
-            (preference-topic max-distance)
-            (iteration 1)
-            (type range)
-            (valid-answers 10 100))
-    (question (the-question "Do you prefer to spend an equal amount of time in all the places you will visit? [yes, no] ")
-            (preference-topic days-partitioning)
-            (iteration 1)
+    (question (the-question "Would you like to visit more than one resort? [yes, no] ")
+            (preference-topic trip-length-generic)
+            (iteration 1) 
+            (skippable FALSE)
             (valid-answers yes no))
     (question (the-question "How many places would you like to visit during your vacation? (between 2 and 5 resorts) ")
             (preference-topic trip-length)
             (iteration 1)
             (type range)
-            (valid-answers 1 5))
-    (question (the-question "Would you like to visit more than one resort? [yes, no] ")
-            (preference-topic trip-length-generic)
-            (iteration 1)
             (skippable FALSE)
+            (precursors trip-length-generic is yes)
+            (valid-answers 1 5))
+    (question (the-question "What is the maximum distance that you are willing to travel between two resorts? (between 10 ad 100 km) ")
+            (preference-topic max-distance)
+            (iteration 1) 
+            (type range)
+            (precursors trip-length-generic is yes)
+            (valid-answers 10 100))
+    (question (the-question "Do you prefer to spend an equal amount of time in all the places you will visit? [yes, no] ")
+            (preference-topic days-partitioning)
+            (iteration 1) 
+            (precursors trip-length-generic is yes)
             (valid-answers yes no))
     ;;----------------------------------------------
-    (question (the-question "Do you generally prefer cool or warm places? [cool, both, warm]")
-            (iteration 1)
-            (preference-topic temperature)
-            (valid-answers cool both warm))
-    (question (the-question "Do you like to swim? [no, indifferent, yes]")
-            (preference-topic swim)
-            (iteration 1)
-            (valid-answers no indifferent yes))
-    (question (the-question "How much it is important for you to eat at good places? (between 1 and 10) ")
-            (preference-topic food)
-            (iteration 1)
+    (question (the-question "Do you have a precise budget limit? [yes, no] ")
+            (preference-topic budget-limit-generic)
+            (iteration 2) 
+            (valid-answers yes no))
+    (question (the-question "Please insert your budget limit. [between 100 and 999999 euros] ")
+            (preference-topic budget-limit)
+            (skippable FALSE)
+            (iteration 2) 
             (type range)
-            (valid-answers 1 10))
-    (question (the-question "Are you interested in places that are relevant from a religious point of view? ")
+            (precursors budget-limit-generic is yes)
+            (valid-answers 100 999999))
+    (question (the-question "How much it is important for you to eat at good places? (between 1 and 5) ")
+            (preference-topic food)
+            (iteration 2) 
+            (type range)
+            (valid-answers 1 5))
+    (question (the-question "How much are you interested in places that are relevant from a religious point of view? (between 1 and 5) ")
             (preference-topic religion)
-            (iteration 1)
-            (valid-answers none low medium high))               
+            (iteration 2) 
+            (type range)
+            (valid-answers 1 5))  
+     ;;----------------------------------------------             
     (question (the-question "Do you value a resort more for its naturalistic beauty than for its attractions? [yes no] ")
-            (preference-topic value)
-            (iteration 1)
-            (valid-answers yes no))       
+            (preference-topic naturalistic-value)
+            (iteration 3) 
+            (valid-answers yes no))   
+    (question (the-question "Do you like to swim? [no, indifferent, yes] ")
+            (preference-topic swim)
+            (iteration 3) 
+            (valid-answers no indifferent yes))    
     (question (the-question "When on vacation, do you prefer to relax or to be phisically active? [relax, both, active] ")
             (preference-topic sport)
-            (iteration 1)
+            (iteration 3) 
             (valid-answers relax both active))
-    (question (the-question "Do you prefer a ?")
-            (preference-topic cost)
-            (iteration 1)
-            (valid-answers very-cheap cheap normal expensive very-expensive))
-    (question (the-question "Do you like to visit museums, ? [yes, sometimes, rarely, no] ")
+    (question (the-question "Do you like to visit museums, art shows, hystorical monuments, etc.? [yes, sometimes, rarely, no] ")
             (preference-topic culture)
-            (iteration 1)
+            (iteration 3) 
             (valid-answers yes sometimes rarely no))
+    ;;-----------------------------------------------
+    (question (the-question "Please insert one o more resorts to avoid (separated by spaces). Leave blank for none. ")
+            (preference-topic ban-resort)
+            (type open)
+            (iteration 4) 
+            (valid-answers relax both active))
+    (question (the-question "Please insert one o more regions to avoid (separated by spaces). Leave blank for none. ")
+            (preference-topic ban-region)
+            (type open)
+            (iteration 4))
+    (question (the-question "Please insert one o more resorts to favor (separated by spaces). Leave blank for none. ")
+            (preference-topic favor-resort)
+            (type open)
+            (iteration 4))
+    (question (the-question "Please insert one o more regions to favor (separated by spaces). Leave blank for none. ")
+            (preference-topic favor-region)
+            (type open)
+            (iteration 4))
 ) 
 
+
+;;***********************
+;;* MODULE ASK-QUESTION *
+;;***********************
 
 (defmodule ASK-QUESTION (import COMMON ?ALL) (import QUESTION ?ALL))
 
 
-;;(defrule ASK-QUESTION::precursor-is-satisfied
-;;   ?f <- (question (already-asked FALSE)
-;;                   (precursors ?name is ?value $?rest))
-;;         (preference (topic ?name) (value ?value))
-;;   =>
-;;   (if (eq (nth 1 ?rest) and) 
-;;    then (modify ?f (precursors (rest$ ?rest)))
-;;    else (modify ?f (precursors ?rest))))
-
-
-
-;; *********the ask function********
-(deffunction ASK-QUESTION::ask-closed-question (?question ?allowed-values)
-    (printout t ?question)
-    (bind ?answer (read))
-    (if (lexemep ?answer) then (bind ?answer (lowcase ?answer)))
-    (while (not (member ?answer ?allowed-values)) do
-        (printout t ?question)
-        (bind ?answer (read))
-        (if (lexemep ?answer) then (bind ?answer (lowcase ?answer))))
+(deffunction ASK-QUESTION::ask-question (?type ?skip ?question ?allowed-values)   
+    (bind ?answer INVALID-ANSWER)
+    (switch ?type
+        (case closed then
+            (while (not (member$ ?answer ?allowed-values)) do
+                (printout t ?question)
+                (bind ?answer (read))
+                (if (and (eq ?skip TRUE) (eq ?answer nil)) then (break))
+                (if (lexemep ?answer) then (bind ?answer (lowcase ?answer)))
+            )
+        )
+        (case range then
+            (bind ?min (nth 1 ?allowed-values))
+            (bind ?max (nth 2 ?allowed-values)) 
+            (while (or (not (integerp ?answer)) (< ?answer ?min) (> ?answer ?max)) do
+                (printout t ?question)
+                (bind ?answer (read))
+                (if (and (eq ?skip TRUE) (eq ?answer nil)) then (break))
+            )
+        )
+        (case open then
+            (bind ?answer (explode$ (readline)))
+        )
+    )
     ?answer
 )
-   
-;; *********the ask function********
-(deffunction ASK-QUESTION::ask-range-question (?question ?min ?max)
-    (printout t ?question)
-    (bind ?answer (read))
-    (while (and (neq ?answer nil) (or (not (numberp ?answer)) (< ?answer ?min) (> ?answer ?max))) do
-        (printout t ?question)
-        (bind ?answer (read)))
-    (round ?answer)
+
+
+(defrule ASK-QUESTION::precursor-is-satisfied
+    ?f <- (question (already-asked FALSE)
+                    (precursors ?name is ?value $?rest))
+    (preference (topic ?name) (answer-value ?value))
+=> 
+    (modify ?f (precursors  ?rest))
 )
 
-(defrule ASK-QUESTION::ask-a-closed-question
+
+(defrule ASK-QUESTION::ask-the-end-question
+    (declare (salience 500))
+    (iteration (number ?i))
+    (test (> ?i 0))
+=>
+    (bind ?q "Are you happy with one of the suggested trips? [yes, no] ")
+    (bind ?va (create$ yes no))
+    (bind ?answer (ask-question closed FALSE ?q ?va))
+    (if (eq ?answer yes) then 
+        (printout t "Thank you for using our system. Have a good vacation!" crlf crlf)
+        (halt)
+        (reset))
+)
+
+
+(defrule ASK-QUESTION::ask-a-question
     (iteration (number ?i))
     ?fact <- (question (iteration ?i)
                     (already-asked FALSE)
-                    (type closed)
+                    (type ?t)
+                    (skippable ?s)
+                    (precursors)
                     (the-question ?q)
                     (preference-topic ?pt)
                     (valid-answers $?va))
 =>
-    (modify ?fact (already-asked TRUE))
-    (assert (preference (topic ?pt) (answer-value (ask-closed-question ?q ?va))))
+    (bind ?answer (ask-question ?t ?s ?q ?va))
+    (if (eq ?t open) then
+        (assert (preference (topic ?pt) (answer-value ?answer)))
+        (modify ?fact (iteration (+ ?i 1)))  ;;ask again in next iteration
+    else
+        (if (neq ?answer nil) then
+            (modify ?fact (already-asked TRUE))
+            (assert (preference (topic ?pt) (answer-value ?answer)))
+         else
+            (modify ?fact (iteration (+ ?i 1)))  ;;ask again in next iteration
+         )
+     )
 )
 
-(defrule ASK-QUESTION::ask-a-range-question
-    (iteration (number ?i))
-    ?fact <- (question (iteration ?i)
-                   (already-asked FALSE)
-                   (type range)
-                   (the-question ?q)
-                   (preference-topic ?pt)
-                   (valid-answers ?min ?max))
-=>
-    (modify ?fact (already-asked TRUE))
-    (assert (preference (topic ?pt) (answer-value (ask-range-question ?q ?min ?max))))
-)
-   
 
 ;;*****************************
 ;;* MODULE QUESTION-INFERENCE *
@@ -241,88 +298,161 @@
 
 (defmodule QUESTION-INFERENCE (import COMMON ?ALL) (import QUESTION ?ALL))
 
+
+;;------------ TEMPERATURE ------------
+
 (defrule QUESTION-INFERENCE::temperature-warm
     (preference (topic temperature) (answer-value warm))
-    (iteration (number ?i))
 =>
-    (assert (dv (iteration ?i) (description the-tourism-type) (value sea) (CF 0.4) (basic TRUE)))
-    (assert (dv (iteration ?i) (description the-tourism-type) (value mountain) (CF -0.4) (basic TRUE))) 
+    (assert (dv (description the-tourism-type) (value sea) (CF 0.4) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value mountain) (CF -0.4) (basic TRUE))) 
+)
+
+(defrule QUESTION-INFERENCE::temperature-both
+    (preference (topic temperature) (answer-value both))
+=>
+    (assert (dv (description the-tourism-type) (value mountain) (CF 0.1) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value sea) (CF 0.1) (basic TRUE))) 
 )
     
 (defrule QUESTION-INFERENCE::temperature-cool
     (preference (topic temperature) (answer-value cool))
-    (iteration (number ?i))
 =>
-    (assert (dv (iteration ?i) (description the-tourism-type) (value mountain) (CF 0.4) (basic TRUE)))
-    (assert (dv (iteration ?i) (description the-tourism-type) (value sea) (CF -0.4) (basic TRUE))) 
+    (assert (dv (description the-tourism-type) (value mountain) (CF 0.4) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value sea) (CF -0.4) (basic TRUE))) 
 )
 
-    
+;;------------ CULTURE ------------
+
 (defrule QUESTION-INFERENCE::culture-yes
     (preference (topic culture) (answer-value yes))
-    (iteration (number ?i))
 =>
-    (assert (dv (iteration ?i) (description the-tourism-type) (value cultural) (CF 0.8) (basic TRUE)))
-    (assert (dv (iteration ?i) (description the-tourism-type) (value religious) (CF 0.5) (basic TRUE))) 
+    (assert (dv (description the-tourism-type) (value cultural) (CF 0.7) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value religious) (CF 0.2) (basic TRUE))) 
+)
+
+(defrule QUESTION-INFERENCE::culture-sometimes
+    (preference (topic culture) (answer-value sometimes))
+=>
+    (assert (dv (description the-tourism-type) (value cultural) (CF 0.3) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value religious) (CF 0.1) (basic TRUE))) 
+)
+
+(defrule QUESTION-INFERENCE::culture-rarely
+    (preference (topic culture) (answer-value rarely))
+=>
+    (assert (dv (description the-tourism-type) (value cultural) (CF -0.3) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value religious) (CF -0.1) (basic TRUE))) 
 )
 
 (defrule QUESTION-INFERENCE::culture-no
     (preference (topic culture) (answer-value no))
-    (iteration (number ?i))
 =>
-    (assert (dv (iteration ?i) (description the-tourism-type) (value cultural) (CF -0.8) (basic TRUE)))
-    (assert (dv (iteration ?i) (description the-tourism-type) (value religious) (CF -0.5) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value cultural) (CF -0.7) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value religious) (CF -0.2) (basic TRUE)))
 )
+
+;;------------ FOOD ------------
+
+(defrule QUESTION-INFERENCE::food
+    (preference (topic food) (answer-value ?v))
+=>
+    (bind ?cf (* 0.6 (/ (- ?v 2.5) 2.5)))
+    (assert (dv (description the-tourism-type) (value enogastronomy) (CF ?cf) (basic TRUE)))
+)
+
+;;------------ RELIGION ------------
+
+(defrule QUESTION-INFERENCE::religion
+    (preference (topic religion) (answer-value ?v))
+=>
+    (bind ?cf (* 0.6 (/ (- ?v 2.5) 2.5)))
+    (assert (dv (description the-tourism-type) (value religious) (CF ?cf) (basic TRUE)))
+)
+
+;;------------ COST ------------
 
 (defrule QUESTION-INFERENCE::cost-cheap
     (preference (topic cost) (answer-value cheap))
-    (iteration (number ?i))
 =>
-    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 1) (CF 0.6) (basic TRUE)))
-    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 2) (CF 0.2) (basic TRUE))) 
-    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 3) (CF -0.2) (basic TRUE)))
-    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 4) (CF -0.6) (basic TRUE))) 
+    (assert (dv (description the-optimal-hotel-stars) (value 1) (CF 0.6) (basic TRUE)))
+    (assert (dv (description the-optimal-hotel-stars) (value 2) (CF 0.2) (basic TRUE))) 
+    (assert (dv (description the-optimal-hotel-stars) (value 3) (CF -0.2) (basic TRUE)))
+    (assert (dv (description the-optimal-hotel-stars) (value 4) (CF -0.6) (basic TRUE))) 
 )
 
 (defrule QUESTION-INFERENCE::cost-normal
     (preference (topic cost) (answer-value normal))
-    (iteration (number ?i))
 =>
-    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 1) (CF -0.2) (basic TRUE)))
-    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 2) (CF 0.6) (basic TRUE))) 
-    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 3) (CF 0.6) (basic TRUE)))
-    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 4) (CF -0.2) (basic TRUE))) 
+    (assert (dv (description the-optimal-hotel-stars) (value 1) (CF -0.2) (basic TRUE)))
+    (assert (dv (description the-optimal-hotel-stars) (value 2) (CF 0.6) (basic TRUE))) 
+    (assert (dv (description the-optimal-hotel-stars) (value 3) (CF 0.6) (basic TRUE)))
+    (assert (dv (description the-optimal-hotel-stars) (value 4) (CF -0.2) (basic TRUE))) 
 )
 
 (defrule QUESTION-INFERENCE::cost-expensive
     (preference (topic cost) (answer-value expensive))
-    (iteration (number ?i))
 =>
-    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 1) (CF -0.6) (basic TRUE)))
-    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 2) (CF -0.2) (basic TRUE))) 
-    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 3) (CF 0.2) (basic TRUE)))
-    (assert (dv (iteration ?i) (description the-optimal-hotel-stars) (value 4) (CF 0.6) (basic TRUE)))
+    (assert (dv (description the-optimal-hotel-stars) (value 1) (CF -0.6) (basic TRUE)))
+    (assert (dv (description the-optimal-hotel-stars) (value 2) (CF -0.2) (basic TRUE))) 
+    (assert (dv (description the-optimal-hotel-stars) (value 3) (CF 0.2) (basic TRUE)))
+    (assert (dv (description the-optimal-hotel-stars) (value 4) (CF 0.6) (basic TRUE)))
 )
+
+;;------------ SPORT ------------
+
+(defrule QUESTION-INFERENCE::sport-relax
+    (preference (topic sport) (answer-value relax))
+=>
+    (assert (dv (description the-tourism-type) (value sportive) (CF -0.5) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value thermal) (CF 0.5) (basic TRUE)))
+)
+
+(defrule QUESTION-INFERENCE::sport-active
+    (preference (topic sport) (answer-value active))
+=>
+    (assert (dv (description the-tourism-type) (value sportive) (CF 0.5) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value thermal) (CF -0.5) (basic TRUE)))
+)
+
+;;------------ PEOPLE NUM ------------
 
 (defrule QUESTION-INFERENCE::people-number
     (preference (topic people-number) (answer-value ?v))
-    (iteration (number ?i))
 =>
-    (assert (dv (iteration ?i) (description the-people-number) (value ?v) (CF 1.0) (basic TRUE)))
+    (assert (dv (description the-people-number) (value ?v) (CF 1.0) (basic TRUE)))
 )
+
+;;------------ MAX DISTANCE ------------
 
 (defrule QUESTION-INFERENCE::max-distance
     (preference (topic max-distance) (answer-value ?v))
-    (iteration (number ?i))
 =>
-    (assert (dv (iteration ?i) (description the-max-route-distance) (value ?v) (CF 1.0) (basic TRUE)))
+    (assert (dv (description the-max-route-distance) (value ?v) (CF 1.0) (basic TRUE)))
 )
+
+;;------------ TRIP DURATION ------------
 
 (defrule QUESTION-INFERENCE::trip-duration
     (preference (topic trip-duration) (answer-value ?v))
-    (iteration (number ?i))
 =>
-    (assert (dv (iteration ?i) (description the-trip-duration) (value ?v) (CF 1.0) (basic TRUE)))
+    (assert (dv (description the-trip-duration) (value ?v) (CF 1.0) (basic TRUE)))
+)
+
+;;------------ TRIP LENGTH ------------
+
+(defrule QUESTION-INFERENCE::trip-length
+    (preference (topic trip-length) (answer-value ?v))
+=>
+    (assert (dv (description the-trip-length) (value ?v) (CF 1.0) (basic TRUE)))
+)
+
+;;------------DAYS PARTITIONING ------------
+
+(defrule QUESTION-INFERENCE::days-partitioning
+    (preference (topic days-partitioning) (answer-value yes))
+=>
+    (assert (dv (description the-days-partitioning) (value yes) (CF 1.0) (basic TRUE)))
 )
 
 
@@ -482,12 +612,10 @@
     (retract ?p2)
 )
 
-
 (defrule INIT::define-duration-unit
     (dv (description the-trip-duration) (value ?d))
-    (iteration (number ?i))
 =>
-    (assert (dv (iteration ?i) (description the-duration-unit) (value (max 1 (div ?d 7))) (CF 1.0) (basic TRUE)))
+    (assert (dv (description the-duration-unit) (value (max 1 (div ?d 7))) (CF 1.0) (basic TRUE)))
 )
 
 
@@ -512,43 +640,6 @@
     (test (> ?d1 ?u))
 =>
     (assert (duration (days ?dl (- ?d1 ?u) (+ ?d2 ?u) ?dr) (length ?len)))  
-)
-
-
-;;**********************
-;;* MODULE REFRESH *
-;;**********************
-
-(defmodule REFRESH (import COMMON ?ALL) (import TRIP ?ALL))
-
-
-(defrule REFRESH::reassert-basic-dv
-    (iteration (number ?i))
-    ?fact <- (dv (iteration ?i) (description $?d) (value $?v) (CF ?c) (basic TRUE))
-=>  
-    (retract ?fact)
-    (assert (dv (iteration (+ ?i 1)) (description ?d) (value ?v) (CF ?c) (basic TRUE)))
-)
-
-(defrule REFRESH::remove-derived-dv
-    ?fact <- (dv (description $?d) (value $?v) (CF ?c) (basic FALSE))
-=>  
-    (retract ?fact)
-)
-
-(defrule REFRESH::remove-trip
-    ?t <- (trip)
-=>
-    (retract ?t)
-)
-
-(defrule REFRESH::on-exit
-    (declare (salience -1000))
-    ?fact <- (iteration (number ?i))
-=>
-    (retract ?fact)
-    (assert (iteration (number (+ ?i 1))))
-    (pop-focus)
 )
 
 
@@ -605,7 +696,7 @@
     (dv (description the-people-number) (value ?p))
     (hotel (name ?h) (resort ?r) (empty ?e&:(> ?e ?p)) (capacity ?c))
 =>
-    (bind ?new-cf (* 0.7 (/ ?e ?c)))
+    (bind ?new-cf (* 0.8 (/ ?e ?c)))
     (assert (dv (description the-hotel-in ?r) (value ?h) (CF ?new-cf)))
 )
 
@@ -661,7 +752,7 @@
 =>
     (bind ?index (member$ ?r (create$ ?rl ?r ?rr)))
     (bind ?daily-cost (+ 50 (* ?s 25)))
-    (bind ?cost-all-people (* (div ?p 2) ?daily-cost))
+    (bind ?cost-all-people (* (max 1 (div ?p 2)) ?daily-cost))
     (bind ?cost-all-days (* (nth ?index ?ds) ?cost-all-people))
     (modify ?t (hotels (replace$ ?hs ?index ?index ?h)) (costs (replace$ ?cs ?index ?index ?cost-all-days)))
 )
@@ -703,7 +794,7 @@
     (trip (trip-id ?id) (length ?len))
     (dv (description the-trip-length) (value ?tl))
 => 
-    (bind ?tcf (- 0.7 (* (abs (- ?tl ?len)) 0.4)))
+    (bind ?tcf (- 0.8 (* (abs (- ?tl ?len)) 0.5)))
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
@@ -752,7 +843,7 @@
    (iteration (number ?i))
    =>
    (printout t  crlf crlf)
-   (printout t " >>>>>>>>>>>>>>>   SELECTED TRIPS (ITERATION " ?i ")  <<<<<<<<<<<<<<<"  crlf)
+   (printout t " >>>>>>>>>>>>>>>   SELECTED TRIPS (ITERATION " (+ ?i 1) ")  <<<<<<<<<<<<<<<"  crlf)
    (printout t  crlf)
 )
    
@@ -782,9 +873,59 @@
 ) 
    
 
-(defrule PRINT-RESULTS::plsstop
+;;*********************
+;;* MODULE INVALIDATE *
+;;*********************
+
+(defmodule INVALIDATE (import COMMON ?ALL) (import TRIP ?ALL))
+
+(defrule INVALIDATE::invalidate-basic-dv
+    ?fact <- (dv (description $?d) (value $?v) (CF ?c) (basic TRUE) (updated TRUE))
+=>  
+    (modify ?fact (updated FALSE))
+)
+
+(defrule INVALIDATE::remove-derived-dv
+    ?fact <- (dv (description $?d) (value $?v) (CF ?c) (basic FALSE))
+=>  
+    (retract ?fact)
+)
+
+(defrule INVALIDATE::remove-trip
+    ?t <- (trip)
+=>
+    (retract ?t)
+)
+
+
+;;******************
+;;* MODULE REFRESH *
+;;******************
+
+(defmodule REFRESH (import COMMON ?ALL))
+
+
+(defrule REFRESH::refresh-basic-dv
+    ?fact <- (dv (description $?d) (value $?v) (CF ?c) (basic TRUE) (updated FALSE))
+=>  
+    (modify ?fact (updated TRUE))
+)
+
+
+(defrule REFRESH::plsstop
     (declare (salience -200))
+    (iteration (number ?i))
 =>
     (halt)
 ) 
+
+
+(defrule REFRESH::on-exit
+    (declare (salience -1000))
+    ?fact <- (iteration (number ?i))
+=>
+    (retract ?fact)
+    (assert (iteration (number (+ ?i 1))))  ;;increment iteration number
+    (pop-focus)
+)
 
