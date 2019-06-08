@@ -94,8 +94,9 @@
     (slot preference-topic (default ?NONE))
     (slot the-question (default ?NONE))
     (multislot valid-answers)
-    (slot already-asked (default FALSE))
+    ;;(slot already-asked (default FALSE))
     (multislot precursors)
+    (slot repeat (default FALSE))
 )
 
 
@@ -189,19 +190,23 @@
     (question (the-question "Please insert one o more resorts to avoid (separated by spaces). Leave blank for none. ")
             (preference-topic ban-resort)
             (type open)
+            (repeat TRUE)
             (iteration 4) 
             (valid-answers relax both active))
     (question (the-question "Please insert one o more regions to avoid (separated by spaces). Leave blank for none. ")
             (preference-topic ban-region)
             (type open)
+            (repeat TRUE)
             (iteration 4))
     (question (the-question "Please insert one o more resorts to favor (separated by spaces). Leave blank for none. ")
             (preference-topic favor-resort)
             (type open)
+            (repeat TRUE)
             (iteration 4))
     (question (the-question "Please insert one o more regions to favor (separated by spaces). Leave blank for none. ")
             (preference-topic favor-region)
             (type open)
+            (repeat TRUE)
             (iteration 4))
 ) 
 
@@ -215,12 +220,14 @@
 
 (deffunction ASK-QUESTION::ask-question (?type ?skip ?question ?allowed-values)   
     (bind ?answer INVALID-ANSWER)
+    (bind ?empty FALSE)
     (switch ?type
         (case closed then
             (while (not (member$ ?answer ?allowed-values)) do
                 (printout t ?question)
-                (bind ?answer (read))
-                (if (and (eq ?skip TRUE) (eq ?answer nil)) then (break))
+                (bind ?answer (explode$ (readline)))
+                (if (and (eq ?skip TRUE) (eq (length$ ?answer) 0)) then (bind ?answer nil) (bind ?empty TRUE) (break))
+                (bind ?answer (nth 1 ?answer))
                 (if (lexemep ?answer) then (bind ?answer (lowcase ?answer)))
             )
         )
@@ -229,20 +236,23 @@
             (bind ?max (nth 2 ?allowed-values)) 
             (while (or (not (integerp ?answer)) (< ?answer ?min) (> ?answer ?max)) do
                 (printout t ?question)
-                (bind ?answer (read))
-                (if (and (eq ?skip TRUE) (eq ?answer nil)) then (break))
+                (bind ?answer (explode$ (readline)))
+                (if (and (eq ?skip TRUE) (eq (length$ ?answer) 0)) then (bind ?answer nil) (bind ?empty TRUE) (break))
+                (bind ?answer (nth 1 ?answer))
             )
         )
         (case open then
+            (printout t ?question)
             (bind ?answer (explode$ (readline)))
+            (bind ?empty (eq (length$ ?answer) 0))
         )
     )
-    ?answer
+    (return (create$ ?answer ?empty))
 )
 
 
 (defrule ASK-QUESTION::precursor-is-satisfied
-    ?f <- (question (already-asked FALSE)
+    ?f <- (question ;;(already-asked FALSE)
                     (precursors ?name is ?value $?rest))
     (preference (topic ?name) (answer-value ?value))
 => 
@@ -268,26 +278,27 @@
 (defrule ASK-QUESTION::ask-a-question
     (iteration (number ?i))
     ?fact <- (question (iteration ?i)
-                    (already-asked FALSE)
+                    ;;(already-asked FALSE)
                     (type ?t)
                     (skippable ?s)
+                    (repeat ?r)
                     (precursors)
                     (the-question ?q)
                     (preference-topic ?pt)
                     (valid-answers $?va))
 =>
-    (bind ?answer (ask-question ?t ?s ?q ?va))
-    (if (eq ?t open) then
+    (bind ?answer-pair (ask-question ?t ?s ?q ?va))  
+    (bind ?answer (nth 1 ?answer-pair))
+    (bind ?empty (nth 2 ?answer-pair))
+    (printout t " answer value: " ?answer "--" crlf)   
+    (if (not ?empty) then 
+        (printout t "asserted")   
         (assert (preference (topic ?pt) (answer-value ?answer)))
+    )
+    (if (or ?empty ?r) then
+        (printout t "modified")   
         (modify ?fact (iteration (+ ?i 1)))  ;;ask again in next iteration
-    else
-        (if (neq ?answer nil) then
-            (modify ?fact (already-asked TRUE))
-            (assert (preference (topic ?pt) (answer-value ?answer)))
-         else
-            (modify ?fact (iteration (+ ?i 1)))  ;;ask again in next iteration
-         )
-     )
+    )
 )
 
 
