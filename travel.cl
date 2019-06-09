@@ -1,3 +1,6 @@
+
+
+
 ;;****************
 ;;* MODULE MAIN  *
 ;;****************
@@ -21,6 +24,17 @@
 
 (defmodule COMMON (export ?ALL))
 
+(defglobal 
+    ?*MAX-TOURISM-SCORE* = 5
+    ?*MAX-TRIP-LENGTH* = 5
+    ?*HOTEL-BASE-COST* = 50
+    ?*HOTEL-ADDITIONAL-COST* = 25
+    ?*MAX-ROUTE-DISTANCE-TOLERANCE* = 75
+    ?*MAX-BUDGET-TOLERANCE* = 500
+    ?*MIN-PRINT-CF* = 0.35
+    ?*DURATION-UNIT-RATE* = 7
+)
+
 (deftemplate COMMON::iteration
     (slot number (type INTEGER))
 )
@@ -28,15 +42,13 @@
 (deftemplate COMMON::dv 
     (multislot description)
     (multislot value)
-    (slot CF (default 100.0))
+    (slot CF (default 1.0) (range -1.0 1.0))
     (slot basic (default FALSE))   ;;A basic dv must be reasserted at every iteration. A non-basic one must be removed
     (slot updated (default TRUE))  ;;Every dv is considered updated at creation; it is needed in phases INVALIDATE and REFRESH
 )
 
 (deffacts COMMON::first-iteration
     (iteration (number 0))
-    (dv (description banned) (value ) (CF 1.0) (basic TRUE))
-    (dv (description preferred) (value ) (CF 1.0) (basic TRUE))
 )
 
 ;;;;;;;;; COMBINE CERTAINTIES ;;;;;;;;
@@ -84,7 +96,7 @@
 
 (deftemplate QUESTION::preference
     (slot topic)
-    (multislot answer-value)
+    (slot answer-value)
 )
 
 (deftemplate QUESTION::question
@@ -94,9 +106,9 @@
     (slot preference-topic (default ?NONE))
     (slot the-question (default ?NONE))
     (multislot valid-answers)
-    ;;(slot already-asked (default FALSE))
     (multislot precursors)
-    (slot repeat (default FALSE))
+    (slot always-repeat (default FALSE))
+    (slot never-repeat (default FALSE))
 )
 
 
@@ -147,6 +159,18 @@
             (iteration 1) 
             (precursors trip-length-generic is yes)
             (valid-answers yes no))
+    (question (the-question "Please insert the resort from which you want to start your trip, if any. Leave blank for no preference.")
+            (preference-topic start-resort)
+            (iteration 1) 
+            (type open)
+            (never-repeat TRUE)
+            (precursors trip-length-generic is yes))
+    (question (the-question "Please insert the resort where you want to end your trip, if any. Leave blank for no preference.")
+            (preference-topic end-resort)
+            (iteration 1) 
+            (type open)
+            (never-repeat TRUE)
+            (precursors trip-length-generic is yes))
     ;;----------------------------------------------
     (question (the-question "Do you have a precise budget limit? [yes, no] ")
             (preference-topic budget-limit-generic)
@@ -161,6 +185,7 @@
             (valid-answers 100 999999))
     (question (the-question "How much it is important for you to eat at good places? (between 1 and 5) ")
             (preference-topic food)
+            (never-repeat TRUE)
             (iteration 2) 
             (type range)
             (valid-answers 1 5))
@@ -170,7 +195,7 @@
             (type range)
             (valid-answers 1 5))  
      ;;----------------------------------------------             
-    (question (the-question "Do you value a resort more for its naturalistic beauty than for its attractions? [yes no] ")
+    (question (the-question "Do you value a resort more for its naturalistic beauty than for its attractions? [yes, no] ")
             (preference-topic naturalistic-value)
             (iteration 3) 
             (valid-answers yes no))   
@@ -187,26 +212,26 @@
             (iteration 3) 
             (valid-answers yes sometimes rarely no))
     ;;-----------------------------------------------
-    (question (the-question "Please insert one o more resorts to avoid (separated by spaces). Leave blank for none. ")
+    (question (the-question "Please insert a resort you would like to avoid, if any. Leave blank for none. ")
             (preference-topic ban-resort)
             (type open)
-            (repeat TRUE)
+            (always-repeat TRUE)
             (iteration 4) 
             (valid-answers relax both active))
-    (question (the-question "Please insert one o more regions to avoid (separated by spaces). Leave blank for none. ")
+    (question (the-question "Please insert a region you would like to avoid, if any. Leave blank for none. ")
             (preference-topic ban-region)
             (type open)
-            (repeat TRUE)
+            (always-repeat TRUE)
             (iteration 4))
-    (question (the-question "Please insert one o more resorts to favor (separated by spaces). Leave blank for none. ")
+    (question (the-question "Please insert a resort you would like to favor, if any. Leave blank for none. ")
             (preference-topic favor-resort)
             (type open)
-            (repeat TRUE)
+            (always-repeat TRUE)
             (iteration 4))
-    (question (the-question "Please insert one o more regions to favor (separated by spaces). Leave blank for none. ")
+    (question (the-question "Please insert a region you would like to favor, if any. Leave blank for none. ")
             (preference-topic favor-region)
             (type open)
-            (repeat TRUE)
+            (always-repeat TRUE)
             (iteration 4))
 ) 
 
@@ -226,9 +251,11 @@
             (while (not (member$ ?answer ?allowed-values)) do
                 (printout t ?question)
                 (bind ?answer (explode$ (readline)))
-                (if (and (eq ?skip TRUE) (eq (length$ ?answer) 0)) then (bind ?answer nil) (bind ?empty TRUE) (break))
+                (if (and (eq ?skip TRUE) (eq (length$ ?answer) 0)) then 
+                    (bind ?answer nil) (bind ?empty TRUE) (break))
                 (bind ?answer (nth 1 ?answer))
-                (if (lexemep ?answer) then (bind ?answer (lowcase ?answer)))
+                (if (lexemep ?answer) then 
+                    (bind ?answer (lowcase ?answer)))
             )
         )
         (case range then
@@ -237,14 +264,23 @@
             (while (or (not (integerp ?answer)) (< ?answer ?min) (> ?answer ?max)) do
                 (printout t ?question)
                 (bind ?answer (explode$ (readline)))
-                (if (and (eq ?skip TRUE) (eq (length$ ?answer) 0)) then (bind ?answer nil) (bind ?empty TRUE) (break))
+                (if (and (eq ?skip TRUE) (eq (length$ ?answer) 0)) then 
+                    (bind ?answer nil) (bind ?empty TRUE) (break))
                 (bind ?answer (nth 1 ?answer))
             )
         )
         (case open then
-            (printout t ?question)
-            (bind ?answer (explode$ (readline)))
-            (bind ?empty (eq (length$ ?answer) 0))
+            (bind ?done FALSE)
+            (while (not ?done)
+                (printout t ?question)
+                (bind ?answer (explode$ (readline)))
+                (if (and (eq ?skip TRUE) (eq (length$ ?answer) 0)) then 
+                    (bind ?answer nil) (bind ?empty TRUE)
+                )
+                (if (> (length$ ?answer) 0) then
+                    (bind ?done TRUE) (bind ?answer (nth 1 (create$ ?answer))) 
+                )       
+            )
         )
     )
     (return (create$ ?answer ?empty))
@@ -252,11 +288,11 @@
 
 
 (defrule ASK-QUESTION::precursor-is-satisfied
-    ?f <- (question ;;(already-asked FALSE)
-                    (precursors ?name is ?value $?rest))
-    (preference (topic ?name) (answer-value ?value))
+    ?f <- (question (precursors ?t is ?v $?rest))
+    (preference (topic ?t) (answer-value ?v))
+    (iteration (number ?i))
 => 
-    (modify ?f (precursors  ?rest))
+    (modify ?f (iteration ?i) (precursors ?rest))
 )
 
 
@@ -278,25 +314,25 @@
 (defrule ASK-QUESTION::ask-a-question
     (iteration (number ?i))
     ?fact <- (question (iteration ?i)
-                    ;;(already-asked FALSE)
                     (type ?t)
                     (skippable ?s)
-                    (repeat ?r)
+                    (always-repeat ?ar)
+                    (never-repeat ?nr)
                     (precursors)
                     (the-question ?q)
                     (preference-topic ?pt)
                     (valid-answers $?va))
 =>
-    (bind ?answer-pair (ask-question ?t ?s ?q ?va))  
+    (bind ?answer-pair (ask-question ?t ?s ?q ?va))
     (bind ?answer (nth 1 ?answer-pair))
     (bind ?empty (nth 2 ?answer-pair))
     (printout t " answer value: " ?answer "--" crlf)   
     (if (not ?empty) then 
-        (printout t "asserted")   
+        (printout t "asserted" crlf)   
         (assert (preference (topic ?pt) (answer-value ?answer)))
     )
-    (if (or ?empty ?r) then
-        (printout t "modified")   
+    (if (and (not ?nr) (or ?empty ?ar)) then
+        (printout t "modified" crlf)   
         (modify ?fact (iteration (+ ?i 1)))  ;;ask again in next iteration
     )
 )
@@ -410,6 +446,23 @@
     (assert (dv (description the-optimal-hotel-stars) (value 4) (CF 0.6) (basic TRUE)))
 )
 
+;;------------ NATURALISTIC ------------
+
+(defrule QUESTION-INFERENCE::naturalistic-value-yes
+    (preference (topic naturalistic-value) (answer-value yes))
+=>
+    (assert (dv (description the-tourism-type) (value sea) (CF 0.2) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value lake) (CF 0.2) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value mountain) (CF 0.2) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value naturalistic) (CF 0.6) (basic TRUE)))
+)
+
+(defrule QUESTION-INFERENCE::naturalistic-value-no
+    (preference (topic naturalistic-value) (answer-value no))
+=>
+    (assert (dv (description the-tourism-type) (value naturalistic) (CF -0.4) (basic TRUE)))
+)
+
 ;;------------ SPORT ------------
 
 (defrule QUESTION-INFERENCE::sport-relax
@@ -419,11 +472,42 @@
     (assert (dv (description the-tourism-type) (value thermal) (CF 0.5) (basic TRUE)))
 )
 
+(defrule QUESTION-INFERENCE::sport-both
+    (preference (topic sport) (answer-value both))
+=>
+    (assert (dv (description the-tourism-type) (value sportive) (CF 0.1) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value thermal) (CF 0.1) (basic TRUE)))
+)
+
 (defrule QUESTION-INFERENCE::sport-active
     (preference (topic sport) (answer-value active))
 =>
     (assert (dv (description the-tourism-type) (value sportive) (CF 0.5) (basic TRUE)))
     (assert (dv (description the-tourism-type) (value thermal) (CF -0.5) (basic TRUE)))
+)
+
+;;------------ SWIM ------------
+
+(defrule QUESTION-INFERENCE::swim-yes
+    (preference (topic swim) (answer-value yes))
+=>
+    (assert (dv (description the-tourism-type) (value sea) (CF 0.5) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value lake) (CF 0.5) (basic TRUE)))
+)
+
+(defrule QUESTION-INFERENCE::swim-no
+    (preference (topic swim) (answer-value no))
+=>
+    (assert (dv (description the-tourism-type) (value sea) (CF -0.5) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value lake) (CF -0.5) (basic TRUE)))
+)
+
+;;------------ BUDGET ------------
+
+(defrule QUESTION-INFERENCE::budget-limit
+    (preference (topic budget-limit) (answer-value ?v))
+=>
+    (assert (dv (description the-budget-limit) (value ?v) (CF 1.0) (basic TRUE)))
 )
 
 ;;------------ PEOPLE NUM ------------
@@ -452,18 +536,72 @@
 
 ;;------------ TRIP LENGTH ------------
 
+(defrule QUESTION-INFERENCE::trip-length-generic
+    (preference (topic trip-length-generic) (answer-value no))
+=>
+    (assert (dv (description the-trip-length) (value 1) (CF 1.0) (basic TRUE)))
+)
+
 (defrule QUESTION-INFERENCE::trip-length
     (preference (topic trip-length) (answer-value ?v))
 =>
     (assert (dv (description the-trip-length) (value ?v) (CF 1.0) (basic TRUE)))
 )
 
-;;------------DAYS PARTITIONING ------------
+;;------------ START RESORT ------------
+
+(defrule QUESTION-INFERENCE::start-resort
+    (preference (topic start-resort) (answer-value ?r))
+=>
+    (assert (dv (description the-start-resort) (value ?r) (CF 1.0) (basic TRUE)))
+)
+
+;;------------ END RESORT ------------
+
+(defrule QUESTION-INFERENCE::end-resort
+    (preference (topic end-resort) (answer-value ?r))
+=>
+    (assert (dv (description the-end-resort) (value ?r) (CF 1.0) (basic TRUE)))
+)
+
+;;------------ DAYS PARTITIONING ------------
 
 (defrule QUESTION-INFERENCE::days-partitioning
     (preference (topic days-partitioning) (answer-value yes))
 =>
     (assert (dv (description the-days-partitioning) (value yes) (CF 1.0) (basic TRUE)))
+)
+
+;;------------ BAN RESORT ------------
+
+(defrule QUESTION-INFERENCE::ban-resort
+    (preference (topic ban-resort) (answer-value ?r))
+=>
+    (assert (dv (description the-banned-resort) (value ?r) (CF 0.7) (basic TRUE)))
+)
+
+;;------------ BAN REGION ------------
+
+(defrule QUESTION-INFERENCE::ban-region
+    (preference (topic ban-region) (answer-value ?r))
+=>
+    (assert (dv (description the-banned-region) (value ?r) (CF 0.7) (basic TRUE)))
+)
+
+;;------------ FAVOR RESORT ------------
+
+(defrule QUESTION-INFERENCE::favor-resort
+    (preference (topic favor-resort) (answer-value ?r))
+=>
+    (assert (dv (description the-favourite-resort) (value ?r) (CF 0.7) (basic TRUE)))
+)
+
+;;------------ FAVOR REGION ------------
+
+(defrule QUESTION-INFERENCE::favor-region
+    (preference (topic favor-region) (answer-value ?r))
+=>
+    (assert (dv (description the-favourite-region) (value ?r) (CF 0.7) (basic TRUE)))
 )
 
 
@@ -481,7 +619,7 @@
 (deftemplate RESORT::resort-tourism
     (slot resort-name  (default ?NONE))
     (slot tourism-type (default ?NONE))
-    (slot score (type INTEGER) (range 0 5))
+    (slot score (type INTEGER) (range 1 5))
 ) 
   
 (deftemplate RESORT::route
@@ -605,7 +743,7 @@
 
 (defrule INIT::build-path
     (path (resorts $?rs ?lr) (length ?len) (total-distance ?td))
-    (test (< ?len 5))
+    (test (< ?len ?*MAX-TRIP-LENGTH*))
     (route (resort-src ?lr) (resort-dst ?nr) (distance ?d)) 
     (test (eq (member$ ?nr (create$ ?rs ?lr)) FALSE))
 =>
@@ -626,7 +764,7 @@
 (defrule INIT::define-duration-unit
     (dv (description the-trip-duration) (value ?d))
 =>
-    (assert (dv (description the-duration-unit) (value (max 1 (div ?d 7))) (CF 1.0) (basic TRUE)))
+    (assert (dv (description the-duration-unit) (value (max 1 (div ?d ?*DURATION-UNIT-RATE*))) (CF 1.0) (basic TRUE)))
 )
 
 
@@ -639,7 +777,7 @@
 (defrule INIT::generate-duration
     (dv (description the-duration-unit) (value ?u))
     (duration (days $?ds ?d) (length ?len))
-    (test (< (length$ (create$ ?ds ?d)) 5))
+    (test (< (length$ (create$ ?ds ?d)) ?*MAX-TRIP-LENGTH*))
     (test (> ?d ?u))
 =>
     (assert (duration (days ?ds (- ?d ?u) ?u) (length (+ ?len 1))))
@@ -671,15 +809,45 @@
     (resort (name ?r))
     (resort-tourism (resort-name ?r) (tourism-type ?t) (score ?s))
 =>
-    (bind ?rcf (/ (* ?s ?cf) 5.0))
+    (bind ?rcf (/ (* ?s ?cf) ?*MAX-TOURISM-SCORE*))
     (assert (dv (description the-resort) (value ?r) (CF ?rcf)))
 )
+
+
+(defrule RATE-RESORT::rate-resort-by-banned-resorts
+    (dv (description the-banned-resort) (value ?r) (CF ?cf))
+    (resort (name ?r))
+=>
+    (assert (dv (description the-resort) (value ?r) (CF -?cf)))
+)
+
+(defrule RATE-RESORT::rate-resort-by-banned-regions
+    (dv (description the-banned-region) (value ?rg) (CF ?cf))
+    (resort (name ?r) (region ?rg))
+=>
+    (assert (dv (description the-resort) (value ?r) (CF -?cf)))
+)
+
+(defrule RATE-RESORT::rate-resort-by-favourite-resorts
+    (dv (description the-favourite-resort) (value ?r) (CF ?cf))
+    (resort (name ?r))
+=>
+    (assert (dv (description the-resort) (value ?r) (CF ?cf)))
+)
+
+(defrule RATE-RESORT::rate-resort-by-favourite-regions
+    (dv (description the-favourite-region) (value ?rg) (CF ?cf))
+    (resort (name ?r) (region ?rg))
+=>
+    (assert (dv (description the-resort) (value ?r) (CF ?cf)))
+)
+
 
 (defrule RATE-RESORT::rate-route
     (route (resort-src ?src) (resort-dst ?dst) (distance ?d))
     (dv (description the-max-route-distance) (value ?v))
 =>
-    (bind ?rcf (min 0.7 (max -0.9 (/ (- ?v ?d) 75.0))))   ;; every 75 km we drecrease by 1 (capped at -0.9)
+    (bind ?rcf (min 0.5 (max -0.9 (/ (- ?v ?d) ?*MAX-ROUTE-DISTANCE-TOLERANCE*)))) 
     (assert (dv (description use-route) (value ?src ?dst) (CF ?rcf))) 
 )
 
@@ -762,7 +930,7 @@
     (dv (description the-people-number) (value ?p))
 =>
     (bind ?index (member$ ?r (create$ ?rl ?r ?rr)))
-    (bind ?daily-cost (+ 50 (* ?s 25)))
+    (bind ?daily-cost (+ ?*HOTEL-BASE-COST* (* ?s ?*HOTEL-ADDITIONAL-COST*)))
     (bind ?cost-all-people (* (max 1 (div ?p 2)) ?daily-cost))
     (bind ?cost-all-days (* (nth ?index ?ds) ?cost-all-people))
     (modify ?t (hotels (replace$ ?hs ?index ?index ?h)) (costs (replace$ ?cs ?index ?index ?cost-all-days)))
@@ -805,25 +973,33 @@
     (trip (trip-id ?id) (length ?len))
     (dv (description the-trip-length) (value ?tl))
 => 
-    (bind ?tcf (- 0.8 (* (abs (- ?tl ?len)) 0.5)))
+    (bind ?tcf (- 0.6 (* (abs (- ?tl ?len)) (/ 1.2 (- ?*MAX-TRIP-LENGTH* 1)))))
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
-(defrule BUILD-AND-RATE-TRIP::rate-trip-by-total-cost
+(defrule BUILD-AND-RATE-TRIP::rate-trip-by-budget-limit
     (trip (trip-id ?id) (costs $?cs))
-    (dv (description the-max-cost) (value ?mc))
+    (dv (description the-budget-limit) (value ?b))
 =>
     (bind ?total-cost (+ (expand$ ?cs) 0))
-    (bind ?tcf (min 0.7 (max -0.9 (/ (- ?total-cost ?mc) 100.0))))    ;;every 100 euros we decrease by 0.1
+    (bind ?tcf (min 0.5 (max -0.9 (/ (- ?total-cost ?b) ?*MAX-BUDGET-TOLERANCE*))))   
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
 
-;;(defrule BUILD-AND-RATE-TRIP::rate-trip-by-start-resort
-;;)
-;;
-;;(defrule BUILD-AND-RATE-TRIP::rate-trip-by-end-resort
-;;)
+(defrule BUILD-AND-RATE-TRIP::rate-trip-by-start-resort
+    (dv (description the-start-resort) (value ?sr))
+    (trip (trip-id ?id) (resorts ?sr $?rs))
+=>
+    (assert (dv (description the-trip) (value ?id) (CF 0.3)))
+)
+
+(defrule BUILD-AND-RATE-TRIP::rate-trip-by-end-resort
+    (dv (description the-end-resort) (value ?er))
+    (trip (trip-id ?id) (resorts $?rs ?er))
+=>
+    (assert (dv (description the-trip) (value ?id) (CF 0.3)))
+)
 
 
 ;;************************
@@ -864,7 +1040,7 @@
   (test (<= ?p 5))
   ?fact2 <- (dv (description the-trip) (value ?tid) (CF ?tcf))	
   (not (dv (description the-trip) (value ?tid2&~?tid) (CF ?tcf2&:(> ?tcf2 ?tcf))))
-  (test (> ?tcf 0.35))
+  (test (> ?tcf ?*MIN-PRINT-CF*))
   (trip (trip-id ?tid) (resorts $?rs) (hotels $?hs) (days $?ds) (costs $?cs) (length ?len))
   =>
   (retract ?fact1)
@@ -874,7 +1050,7 @@
   (printout t  crlf)
   (bind ?l (+ ?len 1))
   (printout t " Trip suggestion " ?p " with certainty: " (round (* ?tcf 100)) "%" crlf)
-  (printout t "  - Resorst to visit: " ?rs crlf)
+  (printout t "  - Resorts to visit: " ?rs crlf)
   (printout t "  - Hotels: " (delete$ ?hs ?l 5 ) crlf)
   (printout t "  - Days partitioning: " ?ds crlf)
   (printout t "  - Daily costs: " (delete$ ?cs ?l 5 ) "  |  Total cost: " ?total-cost crlf) 
@@ -891,13 +1067,13 @@
 (defmodule INVALIDATE (import COMMON ?ALL) (import TRIP ?ALL))
 
 (defrule INVALIDATE::invalidate-basic-dv
-    ?fact <- (dv (description $?d) (value $?v) (CF ?c) (basic TRUE) (updated TRUE))
+    ?fact <- (dv (basic TRUE) (updated TRUE))
 =>  
     (modify ?fact (updated FALSE))
 )
 
 (defrule INVALIDATE::remove-derived-dv
-    ?fact <- (dv (description $?d) (value $?v) (CF ?c) (basic FALSE))
+    ?fact <- (dv (basic FALSE))
 =>  
     (retract ?fact)
 )
@@ -917,7 +1093,7 @@
 
 
 (defrule REFRESH::refresh-basic-dv
-    ?fact <- (dv (description $?d) (value $?v) (CF ?c) (basic TRUE) (updated FALSE))
+    ?fact <- (dv (basic TRUE) (updated FALSE))
 =>  
     (modify ?fact (updated TRUE))
 )
