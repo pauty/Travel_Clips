@@ -1,6 +1,4 @@
 
-
-
 ;;****************
 ;;* MODULE MAIN  *
 ;;****************
@@ -147,18 +145,18 @@
             (type range)
             (skippable FALSE)
             (precursors trip-length-generic is yes)
-            (valid-answers 1 5))
+            (valid-answers 2 5))
     (question (the-question "What is the maximum distance that you are willing to travel between two resorts? (between 10 ad 100 km) ")
             (preference-topic max-distance)
             (iteration 1) 
             (type range)
             (precursors trip-length-generic is yes)
             (valid-answers 10 100))
-    (question (the-question "Do you prefer to spend an equal amount of time in all the places you will visit? [yes, no] ")
-            (preference-topic days-partitioning)
-            (iteration 1) 
-            (precursors trip-length-generic is yes)
-            (valid-answers yes no))
+    ;;(question (the-question "Do you prefer to spend an equal amount of time in all the places you will visit? [yes, no] ")
+    ;;        (preference-topic days-partitioning)
+    ;;        (iteration 1) 
+    ;;        (precursors trip-length-generic is yes)
+    ;;        (valid-answers yes no))
     (question (the-question "Please insert the resort from which you want to start your trip, if any. Leave blank for no preference.")
             (preference-topic start-resort)
             (iteration 1) 
@@ -176,7 +174,7 @@
             (preference-topic budget-limit-generic)
             (iteration 2) 
             (valid-answers yes no))
-    (question (the-question "Please insert your budget limit. [between 100 and 999999 euros] ")
+    (question (the-question "Please insert your budget limit. (between 100 and 999999 euros) ")
             (preference-topic budget-limit)
             (skippable FALSE)
             (iteration 2) 
@@ -404,8 +402,8 @@
 (defrule QUESTION-INFERENCE::food
     (preference (topic food) (answer-value ?v))
 =>
-    (bind ?cf (* 0.6 (/ (- ?v 2.5) 2.5)))
-    (assert (dv (description the-tourism-type) (value enogastronomy) (CF ?cf) (basic TRUE)))
+    (bind ?cf (* 0.6 (/ (- ?v 3.0) 2.0)))
+    (assert (dv (description the-tourism-type) (value enogastronomic) (CF ?cf) (basic TRUE)))
 )
 
 ;;------------ RELIGION ------------
@@ -413,7 +411,7 @@
 (defrule QUESTION-INFERENCE::religion
     (preference (topic religion) (answer-value ?v))
 =>
-    (bind ?cf (* 0.6 (/ (- ?v 2.5) 2.5)))
+    (bind ?cf (* 0.6 (/ (- ?v 3.0) 2.0)))
     (assert (dv (description the-tourism-type) (value religious) (CF ?cf) (basic TRUE)))
 )
 
@@ -631,25 +629,105 @@
 ;;;;;;;;;; FACTS ;;;;;;;;;;;;;
 
 (deffacts RESORT::resort-list 
-    (resort (name BiancaVilla) (region Kanto))
+    (resort (name Biancavilla) (region Kanto))
     (resort (name Lavandonia) (region Kanto))
-    (resort (name MonteFatuo) (region Kanto))
+    (resort (name Plumbeopoli) (region Kanto))
+    (resort (name Smeraldopoli) (region Kanto))
+    (resort (name Celestopoli) (region Kanto))
+    (resort (name Aranciopoli) (region Kanto))
+    (resort (name Fucsiapoli) (region Kanto))
+    (resort (name Azzuropoli) (region Kanto))
+    (resort (name Zafferanopoli) (region Kanto))
+    (resort (name Isola_Cannella) (region Kanto))
+    (resort (name Borgo_Foglianova) (region Johto))
+    (resort (name Amarantopoli) (region Johto))
+    (resort (name Fiorpescopoli) (region Johto))
+    (resort (name Violapoli) (region Johto))
+    (resort (name Azalina) (region Johto))
+    (resort (name Mogania) (region Jhoto))
+    (resort (name Fiordoropoli) (region Jhoto))
+    (resort (name Olivinopoli) (region Jhoto))
+    (resort (name Ebanopoli) (region Jhoto))
 )
   
 (deffacts RESORT::resort-tourism-list 
-    (resort-tourism (resort-name BiancaVilla) (tourism-type sea) (score 4))
-    (resort-tourism (resort-name BiancaVilla) (tourism-type mountain) (score 1))
-    (resort-tourism (resort-name BiancaVilla) (tourism-type cultural) (score 3))
-    (resort-tourism (resort-name Lavandonia) (tourism-type sea) (score 3))
-    (resort-tourism (resort-name Lavandonia) (tourism-type religious) (score 3))
-    (resort-tourism (resort-name MonteFatuo) (tourism-type cultural) (score 3))
-    (resort-tourism (resort-name MonteFatuo) (tourism-type mountain) (score 4))
+    (resort-tourism (resort-name Biancavilla) (tourism-type naturalistic) (score 2))
+    (resort-tourism (resort-name Biancavilla) (tourism-type cultural) (score 2))
+    (resort-tourism (resort-name Biancavilla) (tourism-type lake) (score 2))
+    (resort-tourism (resort-name Smeraldopoli) (tourism-type naturalistic) (score 4))
+    (resort-tourism (resort-name Plumbeopoli) (tourism-type mountain) (score 2))
+    (resort-tourism (resort-name Plumbeopoli) (tourism-type cultural) (score 3))
+    (resort-tourism (resort-name Celestopoli) (tourism-type sea) (score 1))
+    (resort-tourism (resort-name Celestopoli) (tourism-type sportive) (score 3))
+    (resort-tourism (resort-name Celestopoli) (tourism-type enogastronomic) (score 2))
+    (resort-tourism (resort-name Aranciopoli) (tourism-type sea) (score 4))
+    (resort-tourism (resort-name Aranciopoli) (tourism-type sportive) (score 1))
+    (resort-tourism (resort-name Aranciopoli) (tourism-type cultural) (score 1))
+    (resort-tourism (resort-name Lavandonia) (tourism-type mountain) (score 2))
+    (resort-tourism (resort-name Lavandonia) (tourism-type lake) (score 1))
+    (resort-tourism (resort-name Lavandonia) (tourism-type religious) (score 4))
+    (resort-tourism (resort-name Azzurropoli) (tourism-type religious) (score 2))
+    (resort-tourism (resort-name Azzurropoli) (tourism-type enogastronomic) (score 3))
+    (resort-tourism (resort-name Azzurropoli) (tourism-type sportive) (score 1))
+    (resort-tourism (resort-name Fucsiapoli) (tourism-type cultural) (score 1))
+    (resort-tourism (resort-name Fucsiapoli) (tourism-type sportive) (score 2))
+    (resort-tourism (resort-name Fucsiapoli) (tourism-type naturalistic) (score 2))
+    (resort-tourism (resort-name Zafferanopoli) (tourism-type sportive) (score 3))
+    (resort-tourism (resort-name Zafferanopoli) (tourism-type thermal) (score 2))
+    (resort-tourism (resort-name Isola_Cannella) (tourism-type thermal) (score 3))
+    (resort-tourism (resort-name Isola_Cannella) (tourism-type sea) (score 2))
+    (resort-tourism (resort-name Isola_Cannella) (tourism-type cultural) (score 3))
+    (resort-tourism (resort-name Borgo_Foglianova) (tourism-type cultural) (score 3))
+    (resort-tourism (resort-name Borgo_Foglianova) (tourism-type sea) (score 1))
+    (resort-tourism (resort-name Fiorpescopoli) (tourism-type sea) (score 2))
+    (resort-tourism (resort-name Fiorpescopoli) (tourism-type enogastronomic) (score 2))
+    (resort-tourism (resort-name Violapoli) (tourism-type cultural) (score 3))
+    (resort-tourism (resort-name Violapoli) (tourism-type religious) (score 3))
+    (resort-tourism (resort-name Azalina) (tourism-type naturalistic) (score 3))
+    (resort-tourism (resort-name Azalina) (tourism-type cultural) (score 1))
+    (resort-tourism (resort-name Fiordoropoli) (tourism-type sea) (score 1))
+    (resort-tourism (resort-name Fiordoropoli) (tourism-type sportive) (score 2))
+    (resort-tourism (resort-name Fiordoropoli) (tourism-type enogastronomic) (score 2))
+    (resort-tourism (resort-name Amarantopoli) (tourism-type cultural) (score 4))
+    (resort-tourism (resort-name Amarantopoli) (tourism-type naturalistic) (score 2))
+    (resort-tourism (resort-name Amarantopoli) (tourism-type religious) (score 2))
+    (resort-tourism (resort-name Olivinopoli) (tourism-type sea) (score 2))
+    (resort-tourism (resort-name Olivinopoli) (tourism-type enogastronomic) (score 3))
+    (resort-tourism (resort-name Mogania) (tourism-type mountain) (score 2))
+    (resort-tourism (resort-name Mogania) (tourism-type lake) (score 3))
+    (resort-tourism (resort-name Ebanopoli) (tourism-type mountain) (score 4))
+    (resort-tourism (resort-name Ebanopoli) (tourism-type thermal) (score 2))
 )
 
 (deffacts RESORT:route-list
-    (route (resort-src BiancaVilla) (resort-dst MonteFatuo) (distance 30))
-    (route (resort-src MonteFatuo) (resort-dst Lavandonia) (distance 10))
-    (route (resort-src Lavandonia) (resort-dst BiancaVilla) (distance 20))
+    (route (resort-src Olivinopoli) (resort-dst Amarantopoli) (distance 45))
+    (route (resort-src Amarantopoli) (resort-dst Mogania) (distance 15))
+    (route (resort-src Amarantopoli) (resort-dst Violapoli) (distance 25))
+    (route (resort-src Amarantopoli) (resort-dst Fiordoropoli) (distance 45))
+    (route (resort-src Violapoli) (resort-dst Fiordoropoli) (distance 45))
+    (route (resort-src Mogania) (resort-dst Ebanopoli) (distance 20))
+    (route (resort-src Ebanopoli) (resort-dst Violapoli) (distance 50))
+    (route (resort-src Fiordoropoli) (resort-dst Azalina) (distance 30))    
+    (route (resort-src Azalina) (resort-dst Violapoli) (distance 65))
+    (route (resort-src Violapoli) (resort-dst Fiorperscopoli) (distance 45))
+    (route (resort-src Ebanopoli) (resort-dst Fiorperscopoli) (distance 55))
+    (route (resort-src Ebanopoli) (resort-dst Borgo_Foglianova) (distance 50))
+    (route (resort-src Ebanopoli) (resort-dst Plumbeopoli) (distance 65))
+    (route (resort-src Borgo_Foglianova) (resort-dst Smeraldopoli) (distance 55))
+    (route (resort-src Borgo_Foglianova) (resort-dst Biancavilla) (distance 40))
+    (route (resort-src Smeraldopoli) (resort-dst Plumbeopoli) (distance 25))
+    (route (resort-src Smeraldopoli) (resort-dst Biancavilla) (distance 20))
+    (route (resort-src Biancavilla) (resort-dst Isola_Cannella) (distance 15))
+    (route (resort-src Isola_Cannella) (resort-dst Fucsiapoli) (distance 35))
+    (route (resort-src Plumbeopoli) (resort-dst Celestopoli) (distance 35))
+    (route (resort-src Celestopoli) (resort-dst Zafferanopoli) (distance 15))
+    (route (resort-src Celestopoli) (resort-dst Lavandonia) (distance 35))
+    (route (resort-src Zafferanopoli) (resort-dst Azzurropoli) (distance 10))
+    (route (resort-src Zafferanopoli) (resort-dst Lavandonia) (distance 20))
+    (route (resort-src Zafferanopoli) (resort-dst Aranciopoli) (distance 10))
+    (route (resort-src Aranciopoli) (resort-dst Lavandonia) (distance 30))
+    (route (resort-src Aranciopoli) (resort-dst Fucsiapoli) (distance 65))
+    (route (resort-src Lavandonia) (resort-dst Fucsiapoli) (distance 55))
 )
 
 ;;*****************
@@ -791,6 +869,16 @@
     (assert (duration (days ?dl (- ?d1 ?u) (+ ?d2 ?u) ?dr) (length ?len)))  
 )
 
+;; optional, to remove unbalanced durations and thus reduce the number of possibile combinations
+(defrule INIT::remove-unbalanced-duration
+    (declare (salience -200))
+    (dv (description the-duration-unit) (value ?u))
+    ?fact <- (duration (days $?dl ?d1 $?dc ?d2 $?dr) (length ?len))
+    (test (> (abs (- ?d1 ?d2)) ?u))
+=>
+    (retract ?fact)  
+)
+
 
 ;;**********************
 ;;* MODULE RATE-RESORT *
@@ -818,14 +906,14 @@
     (dv (description the-banned-resort) (value ?r) (CF ?cf))
     (resort (name ?r))
 =>
-    (assert (dv (description the-resort) (value ?r) (CF -?cf)))
+    (assert (dv (description the-resort) (value ?r) (CF (- 0 ?cf))))
 )
 
 (defrule RATE-RESORT::rate-resort-by-banned-regions
     (dv (description the-banned-region) (value ?rg) (CF ?cf))
     (resort (name ?r) (region ?rg))
 =>
-    (assert (dv (description the-resort) (value ?r) (CF -?cf)))
+    (assert (dv (description the-resort) (value ?r) (CF (- 0 ?cf))))
 )
 
 (defrule RATE-RESORT::rate-resort-by-favourite-resorts
@@ -973,7 +1061,7 @@
     (trip (trip-id ?id) (length ?len))
     (dv (description the-trip-length) (value ?tl))
 => 
-    (bind ?tcf (- 0.6 (* (abs (- ?tl ?len)) (/ 1.2 (- ?*MAX-TRIP-LENGTH* 1)))))
+    (bind ?tcf (- 0.9 (* (abs (- ?tl ?len)) (/ 1.8 (- ?*MAX-TRIP-LENGTH* 1)))))
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
@@ -982,7 +1070,7 @@
     (dv (description the-budget-limit) (value ?b))
 =>
     (bind ?total-cost (+ (expand$ ?cs) 0))
-    (bind ?tcf (min 0.5 (max -0.9 (/ (- ?total-cost ?b) ?*MAX-BUDGET-TOLERANCE*))))   
+    (bind ?tcf (min 0.5 (max -0.9 (/ (- ?b ?total-cost) ?*MAX-BUDGET-TOLERANCE*))))   
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
@@ -1055,7 +1143,7 @@
   (printout t "  - Days partitioning: " ?ds crlf)
   (printout t "  - Daily costs: " (delete$ ?cs ?l 5 ) "  |  Total cost: " ?total-cost crlf) 
   (printout t  crlf)
-  (printout t "       _________________________________________________" crlf)
+  (printout t "       _____________________________________________________" crlf)
   (printout t  crlf)
 ) 
    
