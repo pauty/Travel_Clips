@@ -372,7 +372,7 @@
 (defrule QUESTION-INFERENCE::culture-yes
     (preference (topic culture) (answer-value yes))
 =>
-    (assert (dv (description the-tourism-type) (value cultural) (CF 0.7) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value cultural) (CF 0.6) (basic TRUE)))
     (assert (dv (description the-tourism-type) (value religious) (CF 0.2) (basic TRUE))) 
 )
 
@@ -393,7 +393,7 @@
 (defrule QUESTION-INFERENCE::culture-no
     (preference (topic culture) (answer-value no))
 =>
-    (assert (dv (description the-tourism-type) (value cultural) (CF -0.7) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value cultural) (CF -0.6) (basic TRUE)))
     (assert (dv (description the-tourism-type) (value religious) (CF -0.2) (basic TRUE)))
 )
 
@@ -420,28 +420,28 @@
 (defrule QUESTION-INFERENCE::cost-cheap
     (preference (topic cost) (answer-value cheap))
 =>
-    (assert (dv (description the-optimal-hotel-stars) (value 1) (CF 0.6) (basic TRUE)))
+    (assert (dv (description the-optimal-hotel-stars) (value 1) (CF 0.4) (basic TRUE)))
     (assert (dv (description the-optimal-hotel-stars) (value 2) (CF 0.2) (basic TRUE))) 
     (assert (dv (description the-optimal-hotel-stars) (value 3) (CF -0.2) (basic TRUE)))
-    (assert (dv (description the-optimal-hotel-stars) (value 4) (CF -0.6) (basic TRUE))) 
+    (assert (dv (description the-optimal-hotel-stars) (value 4) (CF -0.4) (basic TRUE))) 
 )
 
 (defrule QUESTION-INFERENCE::cost-normal
     (preference (topic cost) (answer-value normal))
 =>
     (assert (dv (description the-optimal-hotel-stars) (value 1) (CF -0.2) (basic TRUE)))
-    (assert (dv (description the-optimal-hotel-stars) (value 2) (CF 0.6) (basic TRUE))) 
-    (assert (dv (description the-optimal-hotel-stars) (value 3) (CF 0.6) (basic TRUE)))
+    (assert (dv (description the-optimal-hotel-stars) (value 2) (CF 0.4) (basic TRUE))) 
+    (assert (dv (description the-optimal-hotel-stars) (value 3) (CF 0.4) (basic TRUE)))
     (assert (dv (description the-optimal-hotel-stars) (value 4) (CF -0.2) (basic TRUE))) 
 )
 
 (defrule QUESTION-INFERENCE::cost-expensive
     (preference (topic cost) (answer-value expensive))
 =>
-    (assert (dv (description the-optimal-hotel-stars) (value 1) (CF -0.6) (basic TRUE)))
+    (assert (dv (description the-optimal-hotel-stars) (value 1) (CF -0.4) (basic TRUE)))
     (assert (dv (description the-optimal-hotel-stars) (value 2) (CF -0.2) (basic TRUE))) 
     (assert (dv (description the-optimal-hotel-stars) (value 3) (CF 0.2) (basic TRUE)))
-    (assert (dv (description the-optimal-hotel-stars) (value 4) (CF 0.6) (basic TRUE)))
+    (assert (dv (description the-optimal-hotel-stars) (value 4) (CF 0.4) (basic TRUE)))
 )
 
 ;;------------ NATURALISTIC ------------
@@ -452,7 +452,7 @@
     (assert (dv (description the-tourism-type) (value sea) (CF 0.2) (basic TRUE)))
     (assert (dv (description the-tourism-type) (value lake) (CF 0.2) (basic TRUE)))
     (assert (dv (description the-tourism-type) (value mountain) (CF 0.2) (basic TRUE)))
-    (assert (dv (description the-tourism-type) (value naturalistic) (CF 0.6) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value naturalistic) (CF 0.5) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::naturalistic-value-no
@@ -489,8 +489,8 @@
 (defrule QUESTION-INFERENCE::swim-yes
     (preference (topic swim) (answer-value yes))
 =>
-    (assert (dv (description the-tourism-type) (value sea) (CF 0.5) (basic TRUE)))
-    (assert (dv (description the-tourism-type) (value lake) (CF 0.5) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value sea) (CF 0.4) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value lake) (CF 0.4) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::swim-no
@@ -655,6 +655,7 @@
     (resort-tourism (resort-name Biancavilla) (tourism-type cultural) (score 2))
     (resort-tourism (resort-name Biancavilla) (tourism-type lake) (score 2))
     (resort-tourism (resort-name Smeraldopoli) (tourism-type naturalistic) (score 4))
+    (resort-tourism (resort-name Smeraldopoli) (tourism-type lake) (score 2))
     (resort-tourism (resort-name Plumbeopoli) (tourism-type mountain) (score 2))
     (resort-tourism (resort-name Plumbeopoli) (tourism-type cultural) (score 3))
     (resort-tourism (resort-name Celestopoli) (tourism-type sea) (score 1))
@@ -674,6 +675,7 @@
     (resort-tourism (resort-name Fucsiapoli) (tourism-type naturalistic) (score 2))
     (resort-tourism (resort-name Zafferanopoli) (tourism-type sportive) (score 3))
     (resort-tourism (resort-name Zafferanopoli) (tourism-type thermal) (score 2))
+    (resort-tourism (resort-name Zafferanopoli) (tourism-type enogastronomic) (score 2))
     (resort-tourism (resort-name Isola_Cannella) (tourism-type thermal) (score 3))
     (resort-tourism (resort-name Isola_Cannella) (tourism-type sea) (score 2))
     (resort-tourism (resort-name Isola_Cannella) (tourism-type cultural) (score 3))
@@ -747,12 +749,44 @@
 ;;;;;;;;;;; FACTS ;;;;;;;;;;;;
 
 (deffacts HOTEL::hotel-list
-    (hotel (name YesHotel) (resort BiancaVilla) (stars 3) (empty 8) (capacity 20))
-    (hotel (name BhaHotel) (resort BiancaVilla) (stars 1) (empty 12) (capacity 40))
-    (hotel (name MammaHotel) (resort Lavandonia) (stars 4) (empty 7) (capacity 40))
-    (hotel (name BubbaHotel) (resort Lavandonia) (stars 3) (empty 10) (capacity 20))
-    (hotel (name FuocoHotel) (resort MonteFatuo) (stars 3) (empty 15) (capacity 25))
-    (hotel (name MerdaHotel) (resort MonteFatuo) (stars 1) (empty 20) (capacity 30))
+    (hotel (name OakInn) (resort Biancavilla) (stars 3) (empty 8) (capacity 20))
+    (hotel (name Home) (resort Biancavilla) (stars 1) (empty 12) (capacity 40))
+    (hotel (name GreenGreens) (resort Smeraldopoli) (stars 2) (empty 30) (capacity 40))
+    (hotel (name TheCave) (resort  Plumbeopoli) (stars 3) (empty 12) (capacity 20))
+    (hotel (name Broks) (resort  Plumbeopoli) (stars 1) (empty 12) (capacity 40))
+    (hotel (name Memory) (resort Lavandonia) (stars 4) (empty 7) (capacity 40))
+    (hotel (name HolyHotel) (resort Lavandonia) (stars 3) (empty 10) (capacity 20))
+    (hotel (name SeasideHouse) (resort Celestopoli) (stars 3) (empty 15) (capacity 25))
+    (hotel (name Mistys) (resort Celestopoli) (stars 1) (empty 20) (capacity 30))
+    (hotel (name SeaStar) (resort Celestopoli) (stars 4) (empty 10) (capacity 30))
+    (hotel (name Excelsior) (resort Zafferanopoli) (stars 4) (empty 30) (capacity 100))
+    (hotel (name Hyatt) (resort Zafferanopoli) (stars 2) (empty 40) (capacity 50))
+    (hotel (name FisherInn) (resort Zafferanopoli) (stars 1) (empty 20) (capacity 50))
+    (hotel (name FullHotel) (resort Aranciopoli) (stars 2) (empty 10) (capacity 50))
+    (hotel (name EmptyHotel) (resort Aranciopoli) (stars 2) (empty 40) (capacity 60))
+    (hotel (name EasyInn) (resort Fucsiapoli) (stars 2) (empty 45) (capacity 70))
+    (hotel (name PlusHotel) (resort Fucsiapoli) (stars 4) (empty 10) (capacity 30))
+    (hotel (name Diamond) (resort Isola_Cannella) (stars 4) (empty 20) (capacity 50))
+    (hotel (name Pearl) (resort Isola_Cannella) (stars 3) (empty 15) (capacity 30))
+    (hotel (name BlueHue) (resort Azzurropoli) (stars 2) (empty 10) (capacity 50))
+    (hotel (name OneStar) (resort Azzurropoli) (stars 1) (empty 20) (capacity 40))
+    (hotel (name NewBark) (resort Borgo_Foglianova) (stars 2) (empty 10) (capacity 20))
+    (hotel (name OldShip) (resort Fiorpescopoli) (stars 3) (empty 2) (capacity 20))
+    (hotel (name FreshInn) (resort Fiorpescopoli) (stars 2) (empty 10) (capacity 40))
+    (hotel (name ThePeak) (resort Ebanopoli) (stars 2) (empty 10) (capacity 40))
+    (hotel (name FreezeTop) (resort Ebanopoli) (stars 3) (empty 30) (capacity 50))
+    (hotel (name LakeSide) (resort Mogania) (stars 3) (empty 35) (capacity 50))
+    (hotel (name DragonTear) (resort Mogania) (stars 1) (empty 10) (capacity 20))
+    (hotel (name MystInn) (resort Mogania) (stars 2) (empty 30) (capacity 70))
+    (hotel (name TheDeal) (resort Amarantopoli) (stars 1) (empty 25) (capacity 40))
+    (hotel (name Alpha) (resort Violapoli) (stars 1) (empty 25) (capacity 50))
+    (hotel (name Beta) (resort Violapoli) (stars 4) (empty 25) (capacity 40))
+    (hotel (name Gamma) (resort Violapoli) (stars 1) (empty 35) (capacity 40))
+    (hotel (name Cruise) (resort Fiordoropoli) (stars 2) (empty 35) (capacity 70))
+    (hotel (name FlagHouse) (resort Fiordoropoli) (stars 1) (empty 10) (capacity 50))
+    (hotel (name SlowPeace) (resort Azalina) (stars 2) (empty 35) (capacity 40))
+    (hotel (name FullMoon) (resort Azalina) (stars 4) (empty 45) (capacity 60))
+    (hotel (name TallWaves) (resort Olovinopoli) (stars 2) (empty 45) (capacity 70))
 )
 
 
@@ -963,7 +997,7 @@
     (dv (description the-people-number) (value ?p))
     (hotel (name ?h) (resort ?r) (empty ?e&:(> ?e ?p)) (capacity ?c))
 =>
-    (bind ?new-cf (* 0.8 (/ ?e ?c)))
+    (bind ?new-cf (* 0.6 (/ ?e ?c)))
     (assert (dv (description the-hotel-in ?r) (value ?h) (CF ?new-cf)))
 )
 
@@ -1061,7 +1095,7 @@
     (trip (trip-id ?id) (length ?len))
     (dv (description the-trip-length) (value ?tl))
 => 
-    (bind ?tcf (- 0.9 (* (abs (- ?tl ?len)) (/ 1.8 (- ?*MAX-TRIP-LENGTH* 1)))))
+    (bind ?tcf (- 0.7 (* (abs (- ?tl ?len)) (/ 1.4 (- ?*MAX-TRIP-LENGTH* 1)))))
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
@@ -1087,6 +1121,17 @@
     (trip (trip-id ?id) (resorts $?rs ?er))
 =>
     (assert (dv (description the-trip) (value ?id) (CF 0.3)))
+)
+
+(defrule BUILD-AND-RATE-TRIP::remove-suboptimal-trip
+    (declare (salience -400))
+    (trip (trip-id ?id1) (resorts $?rs))
+    ?fact1 <- (trip (trip-id ?id2&~?id1) (resorts $?rs))
+    (dv (description the-trip) (value ?id1) (CF ?cf1))
+    ?fact2 <- (dv (description the-trip) (value ?id2) (CF ?cf2&:(<= ?cf2 ?cf1)))
+=>
+    (retract ?fact1)
+    (retract ?fact2)
 )
 
 
