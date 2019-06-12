@@ -112,7 +112,45 @@
 
 ;;;;;;;;;;;;;;; FACTS ;;;;;;;;;;;;;;;;;;
 
-(deffacts QUESTION::questions-list
+(deffacts QUESTION::questions-list   
+    (question (the-question "Please insert the resort from which you want to start your trip, if any. Leave blank for no preference.")
+            (preference-topic start-resort)
+            (iteration 0) 
+            (type open)
+            (never-repeat TRUE)
+            (precursors trip-length-generic is yes))
+    (question (the-question "Please insert the resort where you want to end your trip, if any. Leave blank for no preference.")
+            (preference-topic end-resort)
+            (iteration 0) 
+            (type open)
+            (never-repeat TRUE)
+            (precursors trip-length-generic is yes))
+    (question (the-question "What is the maximum distance that you are willing to travel between two resorts? (between 10 ad 100 km) ")
+            (preference-topic max-distance)
+            (iteration 0) 
+            (type range)
+            (precursors trip-length-generic is yes)
+            (valid-answers 10 100)) 
+    (question (the-question "How many places would you like to visit during your vacation? (between 2 and 5 resorts) ")
+            (preference-topic trip-length)
+            (iteration 0)
+            (type range)
+            (skippable FALSE)
+            (precursors trip-length-generic is yes)
+            (valid-answers 2 5))
+    (question (the-question "Would you like to visit more than one resort? [yes, no] ")
+            (preference-topic trip-length-generic)
+            (iteration 0) 
+            (skippable FALSE)
+            (valid-answers yes no))
+    (question (the-question "Are you looking for a cheap trip or a luxurious and more expensive one? [cheap, normal, expensive] ")
+            (preference-topic cost)
+            (iteration 0) 
+            (valid-answers cheap normal expensive))
+    (question (the-question "Do you generally prefer cool or warm places? [cool, both, warm] ")            
+            (preference-topic temperature)
+            (iteration 0) 
+            (valid-answers cool both warm))
     (question (the-question "How many people want to go on vacation? (between 1 and 10 people) ") 
             (preference-topic people-number)
             (iteration 0) 
@@ -124,113 +162,72 @@
             (iteration 0)
             (skippable FALSE)
             (type range)
-            (valid-answers 5 30))
-    (question (the-question "Are you looking for a cheap trip or a luxurious and more expensive one? [cheap, normal, expensive] ")
-            (preference-topic cost)
-            (iteration 0) 
-            (valid-answers cheap normal expensive))
-    (question (the-question "Do you generally prefer cool or warm places? [cool, both, warm] ")            
-            (preference-topic temperature)
-            (iteration 0) 
-            (valid-answers cool both warm))
-    ;;--------------------------------------------
-    (question (the-question "Would you like to visit more than one resort? [yes, no] ")
-            (preference-topic trip-length-generic)
-            (iteration 1) 
-            (skippable FALSE)
-            (valid-answers yes no))
-    (question (the-question "How many places would you like to visit during your vacation? (between 2 and 5 resorts) ")
-            (preference-topic trip-length)
-            (iteration 1)
-            (type range)
-            (skippable FALSE)
-            (precursors trip-length-generic is yes)
-            (valid-answers 2 5))
-    (question (the-question "What is the maximum distance that you are willing to travel between two resorts? (between 10 ad 100 km) ")
-            (preference-topic max-distance)
-            (iteration 1) 
-            (type range)
-            (precursors trip-length-generic is yes)
-            (valid-answers 10 100))
-    ;;(question (the-question "Do you prefer to spend an equal amount of time in all the places you will visit? [yes, no] ")
-    ;;        (preference-topic days-partitioning)
-    ;;        (iteration 1) 
-    ;;        (precursors trip-length-generic is yes)
-    ;;        (valid-answers yes no))
-    (question (the-question "Please insert the resort from which you want to start your trip, if any. Leave blank for no preference.")
-            (preference-topic start-resort)
-            (iteration 1) 
-            (type open)
-            (never-repeat TRUE)
-            (precursors trip-length-generic is yes))
-    (question (the-question "Please insert the resort where you want to end your trip, if any. Leave blank for no preference.")
-            (preference-topic end-resort)
-            (iteration 1) 
-            (type open)
-            (never-repeat TRUE)
-            (precursors trip-length-generic is yes))
+            (valid-answers 5 30))       
     ;;----------------------------------------------
+    (question (the-question "How much it is important for you to eat at good places? (between 0 and 5) ")
+            (preference-topic food)
+            (never-repeat TRUE)
+            (iteration 1) 
+            (type range)
+            (valid-answers 0 5))
+    (question (the-question "How much are you interested in places that are relevant from a religious point of view? (between 0 and 5) ")
+            (preference-topic religion)
+            (iteration 1) 
+            (type range)
+            (valid-answers 0 5))               
+    (question (the-question "Do you value a resort more for its naturalistic beauty than for its attractions? [yes, no] ")
+            (preference-topic naturalistic-value)
+            (iteration 1) 
+            (valid-answers yes no))   
+    (question (the-question "Wolud you like to go to the beach, swim, and do other sea/lake related activities? [yes, indifferent, no] ")
+            (preference-topic swim)
+            (iteration 1) 
+            (valid-answers no indifferent yes))  
+    (question (the-question "Do you feel safe to swim in lakes? [yes, no] ")
+            (preference-topic swim-lake)
+            (iteration 1) 
+            (precursors swim is yes)  
+            (valid-answers yes no))  
+    (question (the-question "When on vacation, do you prefer to relax or to be phisically active? [relax, both, active] ")
+            (preference-topic sport)
+            (iteration 1) 
+            (valid-answers relax both active))
+    (question (the-question "Do you like to visit museums, art shows, hystorical monuments, etc.? [yes, sometimes, rarely, no] ")
+            (preference-topic culture)
+            (iteration 1) 
+            (valid-answers yes sometimes rarely no))
     (question (the-question "Do you have a precise budget limit? [yes, no] ")
             (preference-topic budget-limit-generic)
-            (iteration 2) 
+            (iteration 1) 
             (valid-answers yes no))
     (question (the-question "Please insert your budget limit. (between 100 and 999999 euros) ")
             (preference-topic budget-limit)
             (skippable FALSE)
-            (iteration 2) 
+            (iteration 1) 
             (type range)
             (precursors budget-limit-generic is yes)
             (valid-answers 100 999999))
-    (question (the-question "How much it is important for you to eat at good places? (between 1 and 5) ")
-            (preference-topic food)
-            (never-repeat TRUE)
-            (iteration 2) 
-            (type range)
-            (valid-answers 1 5))
-    (question (the-question "How much are you interested in places that are relevant from a religious point of view? (between 1 and 5) ")
-            (preference-topic religion)
-            (iteration 2) 
-            (type range)
-            (valid-answers 1 5))  
-     ;;----------------------------------------------             
-    (question (the-question "Do you value a resort more for its naturalistic beauty than for its attractions? [yes, no] ")
-            (preference-topic naturalistic-value)
-            (iteration 3) 
-            (valid-answers yes no))   
-    (question (the-question "Do you like to swim? [no, indifferent, yes] ")
-            (preference-topic swim)
-            (iteration 3) 
-            (valid-answers no indifferent yes))    
-    (question (the-question "When on vacation, do you prefer to relax or to be phisically active? [relax, both, active] ")
-            (preference-topic sport)
-            (iteration 3) 
-            (valid-answers relax both active))
-    (question (the-question "Do you like to visit museums, art shows, hystorical monuments, etc.? [yes, sometimes, rarely, no] ")
-            (preference-topic culture)
-            (iteration 3) 
-            (valid-answers yes sometimes rarely no))
     ;;-----------------------------------------------
     (question (the-question "Please insert a resort you would like to avoid, if any. Leave blank for none. ")
             (preference-topic ban-resort)
             (type open)
             (always-repeat TRUE)
-            (iteration 4) 
-            (valid-answers relax both active))
+            (iteration 2))
     (question (the-question "Please insert a region you would like to avoid, if any. Leave blank for none. ")
             (preference-topic ban-region)
             (type open)
             (always-repeat TRUE)
-            (iteration 4))
+            (iteration 2))
     (question (the-question "Please insert a resort you would like to favor, if any. Leave blank for none. ")
             (preference-topic favor-resort)
             (type open)
             (always-repeat TRUE)
-            (iteration 4))
+            (iteration 2))
     (question (the-question "Please insert a region you would like to favor, if any. Leave blank for none. ")
             (preference-topic favor-region)
             (type open)
             (always-repeat TRUE)
-            (iteration 4))
+            (iteration 2))
 ) 
 
 
@@ -324,13 +321,13 @@
     (bind ?answer-pair (ask-question ?t ?s ?q ?va))
     (bind ?answer (nth 1 ?answer-pair))
     (bind ?empty (nth 2 ?answer-pair))
-    (printout t " answer value: " ?answer "--" crlf)   
+    ;;(printout t " answer value: " ?answer "--" crlf)   
     (if (not ?empty) then 
-        (printout t "asserted" crlf)   
+        ;;(printout t "asserted" crlf)   
         (assert (preference (topic ?pt) (answer-value ?answer)))
     )
     (if (and (not ?nr) (or ?empty ?ar)) then
-        (printout t "modified" crlf)   
+        ;;(printout t "modified" crlf)   
         (modify ?fact (iteration (+ ?i 1)))  ;;ask again in next iteration
     )
 )
@@ -386,32 +383,24 @@
 (defrule QUESTION-INFERENCE::culture-rarely
     (preference (topic culture) (answer-value rarely))
 =>
-    (assert (dv (description the-tourism-type) (value cultural) (CF -0.3) (basic TRUE)))
-    (assert (dv (description the-tourism-type) (value religious) (CF -0.1) (basic TRUE))) 
-)
-
-(defrule QUESTION-INFERENCE::culture-no
-    (preference (topic culture) (answer-value no))
-=>
-    (assert (dv (description the-tourism-type) (value cultural) (CF -0.6) (basic TRUE)))
-    (assert (dv (description the-tourism-type) (value religious) (CF -0.2) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value cultural) (CF 0.1) (basic TRUE)))
 )
 
 ;;------------ FOOD ------------
 
 (defrule QUESTION-INFERENCE::food
-    (preference (topic food) (answer-value ?v))
+    (preference (topic food) (answer-value ?v&:(> ?v 0)))
 =>
-    (bind ?cf (* 0.6 (/ (- ?v 3.0) 2.0)))
+    (bind ?cf (* 0.6 (/ ?v 5)))
     (assert (dv (description the-tourism-type) (value enogastronomic) (CF ?cf) (basic TRUE)))
 )
 
 ;;------------ RELIGION ------------
 
 (defrule QUESTION-INFERENCE::religion
-    (preference (topic religion) (answer-value ?v))
+    (preference (topic religion) (answer-value ?v&:(> ?v 0)))
 =>
-    (bind ?cf (* 0.6 (/ (- ?v 3.0) 2.0)))
+    (bind ?cf (* 0.6 (/ ?v 5)))
     (assert (dv (description the-tourism-type) (value religious) (CF ?cf) (basic TRUE)))
 )
 
@@ -452,13 +441,7 @@
     (assert (dv (description the-tourism-type) (value sea) (CF 0.2) (basic TRUE)))
     (assert (dv (description the-tourism-type) (value lake) (CF 0.2) (basic TRUE)))
     (assert (dv (description the-tourism-type) (value mountain) (CF 0.2) (basic TRUE)))
-    (assert (dv (description the-tourism-type) (value naturalistic) (CF 0.5) (basic TRUE)))
-)
-
-(defrule QUESTION-INFERENCE::naturalistic-value-no
-    (preference (topic naturalistic-value) (answer-value no))
-=>
-    (assert (dv (description the-tourism-type) (value naturalistic) (CF -0.4) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value naturalistic) (CF 0.6) (basic TRUE)))
 )
 
 ;;------------ SPORT ------------
@@ -466,22 +449,20 @@
 (defrule QUESTION-INFERENCE::sport-relax
     (preference (topic sport) (answer-value relax))
 =>
-    (assert (dv (description the-tourism-type) (value sportive) (CF -0.5) (basic TRUE)))
     (assert (dv (description the-tourism-type) (value thermal) (CF 0.5) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::sport-both
     (preference (topic sport) (answer-value both))
 =>
-    (assert (dv (description the-tourism-type) (value sportive) (CF 0.1) (basic TRUE)))
-    (assert (dv (description the-tourism-type) (value thermal) (CF 0.1) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value sportive) (CF 0.3) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value thermal) (CF 0.3) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::sport-active
     (preference (topic sport) (answer-value active))
 =>
     (assert (dv (description the-tourism-type) (value sportive) (CF 0.5) (basic TRUE)))
-    (assert (dv (description the-tourism-type) (value thermal) (CF -0.5) (basic TRUE)))
 )
 
 ;;------------ SWIM ------------
@@ -489,15 +470,24 @@
 (defrule QUESTION-INFERENCE::swim-yes
     (preference (topic swim) (answer-value yes))
 =>
-    (assert (dv (description the-tourism-type) (value sea) (CF 0.4) (basic TRUE)))
-    (assert (dv (description the-tourism-type) (value lake) (CF 0.4) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value sea) (CF 0.5) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value lake) (CF 0.5) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::swim-no
     (preference (topic swim) (answer-value no))
 =>
-    (assert (dv (description the-tourism-type) (value sea) (CF -0.5) (basic TRUE)))
-    (assert (dv (description the-tourism-type) (value lake) (CF -0.5) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value sea) (CF -0.1) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value lake) (CF -0.1) (basic TRUE)))
+)
+
+;;------------ SWIM-LAKE ------------
+
+(defrule QUESTION-INFERENCE::swim-lake-no
+    (preference (topic swim-lake) (answer-value no))
+=>
+    (assert (dv (description the-tourism-type) (value sea) (CF 0.1) (basic TRUE)))
+    (assert (dv (description the-tourism-type) (value lake) (CF -0.6) (basic TRUE)))
 )
 
 ;;------------ BUDGET ------------
@@ -562,7 +552,7 @@
     (assert (dv (description the-end-resort) (value ?r) (CF 1.0) (basic TRUE)))
 )
 
-;;------------ DAYS PARTITIONING ------------
+;;------------ DAYS PARTITIONING ------------ UNUSED
 
 (defrule QUESTION-INFERENCE::days-partitioning
     (preference (topic days-partitioning) (answer-value yes))
@@ -644,93 +634,101 @@
     (resort (name Fiorpescopoli) (region Johto))
     (resort (name Violapoli) (region Johto))
     (resort (name Azalina) (region Johto))
-    (resort (name Mogania) (region Jhoto))
-    (resort (name Fiordoropoli) (region Jhoto))
-    (resort (name Olivinopoli) (region Jhoto))
-    (resort (name Ebanopoli) (region Jhoto))
+    (resort (name Mogania) (region Johto))
+    (resort (name Fiordoropoli) (region Johto))
+    (resort (name Olivinopoli) (region Johto))
+    (resort (name Ebanopoli) (region Johto))
 )
   
 (deffacts RESORT::resort-tourism-list 
-    (resort-tourism (resort-name Biancavilla) (tourism-type naturalistic) (score 2))
-    (resort-tourism (resort-name Biancavilla) (tourism-type cultural) (score 2))
+    (resort-tourism (resort-name Biancavilla) (tourism-type naturalistic) (score 3))
+    (resort-tourism (resort-name Biancavilla) (tourism-type cultural) (score 3))
     (resort-tourism (resort-name Biancavilla) (tourism-type lake) (score 2))
-    (resort-tourism (resort-name Smeraldopoli) (tourism-type naturalistic) (score 4))
-    (resort-tourism (resort-name Smeraldopoli) (tourism-type lake) (score 2))
+    (resort-tourism (resort-name Smeraldopoli) (tourism-type naturalistic) (score 5))
+    (resort-tourism (resort-name Smeraldopoli) (tourism-type lake) (score 3))
     (resort-tourism (resort-name Plumbeopoli) (tourism-type mountain) (score 3))
-    (resort-tourism (resort-name Plumbeopoli) (tourism-type cultural) (score 3))
-    (resort-tourism (resort-name Celestopoli) (tourism-type sea) (score 1))
-    (resort-tourism (resort-name Celestopoli) (tourism-type sportive) (score 3))
-    (resort-tourism (resort-name Celestopoli) (tourism-type enogastronomic) (score 2))
-    (resort-tourism (resort-name Aranciopoli) (tourism-type sea) (score 4))
-    (resort-tourism (resort-name Aranciopoli) (tourism-type sportive) (score 1))
+    (resort-tourism (resort-name Plumbeopoli) (tourism-type cultural) (score 4))
+    (resort-tourism (resort-name Celestopoli) (tourism-type sea) (score 3))
+    (resort-tourism (resort-name Celestopoli) (tourism-type sportive) (score 4))
+    (resort-tourism (resort-name Celestopoli) (tourism-type enogastronomic) (score 3))
+    (resort-tourism (resort-name Aranciopoli) (tourism-type sea) (score 5))
+    (resort-tourism (resort-name Aranciopoli) (tourism-type sportive) (score 2))
     (resort-tourism (resort-name Aranciopoli) (tourism-type cultural) (score 1))
-    (resort-tourism (resort-name Lavandonia) (tourism-type mountain) (score 2))
-    (resort-tourism (resort-name Lavandonia) (tourism-type lake) (score 1))
-    (resort-tourism (resort-name Lavandonia) (tourism-type religious) (score 4))
-    (resort-tourism (resort-name Azzurropoli) (tourism-type religious) (score 2))
+    (resort-tourism (resort-name Lavandonia) (tourism-type mountain) (score 3))
+    (resort-tourism (resort-name Lavandonia) (tourism-type lake) (score 2))
+    (resort-tourism (resort-name Lavandonia) (tourism-type religious) (score 5))
+    (resort-tourism (resort-name Azzurropoli) (tourism-type religious) (score 3))
     (resort-tourism (resort-name Azzurropoli) (tourism-type enogastronomic) (score 3))
-    (resort-tourism (resort-name Azzurropoli) (tourism-type sportive) (score 1))
-    (resort-tourism (resort-name Fucsiapoli) (tourism-type cultural) (score 1))
-    (resort-tourism (resort-name Fucsiapoli) (tourism-type sportive) (score 2))
+    (resort-tourism (resort-name Azzurropoli) (tourism-type sportive) (score 2))
+    (resort-tourism (resort-name Fucsiapoli) (tourism-type cultural) (score 2))
+    (resort-tourism (resort-name Fucsiapoli) (tourism-type sportive) (score 3))
     (resort-tourism (resort-name Fucsiapoli) (tourism-type sea) (score 2))
-    (resort-tourism (resort-name Fucsiapoli) (tourism-type naturalistic) (score 2))
-    (resort-tourism (resort-name Zafferanopoli) (tourism-type sportive) (score 3))
-    (resort-tourism (resort-name Zafferanopoli) (tourism-type thermal) (score 2))
+    (resort-tourism (resort-name Fucsiapoli) (tourism-type naturalistic) (score 3))
+    (resort-tourism (resort-name Zafferanopoli) (tourism-type sportive) (score 4))
+    (resort-tourism (resort-name Zafferanopoli) (tourism-type thermal) (score 3))
     (resort-tourism (resort-name Zafferanopoli) (tourism-type enogastronomic) (score 2))
     (resort-tourism (resort-name Isola_Cannella) (tourism-type thermal) (score 3))
-    (resort-tourism (resort-name Isola_Cannella) (tourism-type sea) (score 4))
+    (resort-tourism (resort-name Isola_Cannella) (tourism-type sea) (score 5))
     (resort-tourism (resort-name Isola_Cannella) (tourism-type cultural) (score 3))
     (resort-tourism (resort-name Borgo_Foglianova) (tourism-type cultural) (score 3))
-    (resort-tourism (resort-name Borgo_Foglianova) (tourism-type sea) (score 2))
-    (resort-tourism (resort-name Fiorpescopoli) (tourism-type sea) (score 2))
-    (resort-tourism (resort-name Fiorpescopoli) (tourism-type enogastronomic) (score 2))
-    (resort-tourism (resort-name Violapoli) (tourism-type cultural) (score 3))
-    (resort-tourism (resort-name Violapoli) (tourism-type religious) (score 3))
+    (resort-tourism (resort-name Borgo_Foglianova) (tourism-type sea) (score 1))
+    (resort-tourism (resort-name Fiorpescopoli) (tourism-type sea) (score 3))
+    (resort-tourism (resort-name Fiorpescopoli) (tourism-type enogastronomic) (score 3))
+    (resort-tourism (resort-name Violapoli) (tourism-type cultural) (score 4))
+    (resort-tourism (resort-name Violapoli) (tourism-type religious) (score 4))
     (resort-tourism (resort-name Azalina) (tourism-type naturalistic) (score 3))
-    (resort-tourism (resort-name Azalina) (tourism-type cultural) (score 1))
-    (resort-tourism (resort-name Fiordoropoli) (tourism-type sea) (score 2))
+    (resort-tourism (resort-name Azalina) (tourism-type cultural) (score 2))
+    (resort-tourism (resort-name Fiordoropoli) (tourism-type sea) (score 3))
     (resort-tourism (resort-name Fiordoropoli) (tourism-type sportive) (score 2))
-    (resort-tourism (resort-name Fiordoropoli) (tourism-type enogastronomic) (score 2))
-    (resort-tourism (resort-name Amarantopoli) (tourism-type cultural) (score 4))
-    (resort-tourism (resort-name Amarantopoli) (tourism-type naturalistic) (score 2))
-    (resort-tourism (resort-name Amarantopoli) (tourism-type religious) (score 2))
+    (resort-tourism (resort-name Fiordoropoli) (tourism-type enogastronomic) (score 3))
+    (resort-tourism (resort-name Amarantopoli) (tourism-type cultural) (score 5))
+    (resort-tourism (resort-name Amarantopoli) (tourism-type naturalistic) (score 3))
+    (resort-tourism (resort-name Amarantopoli) (tourism-type religious) (score 3))
     (resort-tourism (resort-name Olivinopoli) (tourism-type sea) (score 3))
-    (resort-tourism (resort-name Olivinopoli) (tourism-type enogastronomic) (score 3))
-    (resort-tourism (resort-name Mogania) (tourism-type mountain) (score 2))
-    (resort-tourism (resort-name Mogania) (tourism-type lake) (score 3))
-    (resort-tourism (resort-name Ebanopoli) (tourism-type mountain) (score 4))
-    (resort-tourism (resort-name Ebanopoli) (tourism-type thermal) (score 2))
+    (resort-tourism (resort-name Olivinopoli) (tourism-type enogastronomic) (score 4))
+    (resort-tourism (resort-name Mogania) (tourism-type mountain) (score 3))
+    (resort-tourism (resort-name Mogania) (tourism-type lake) (score 5))
+    (resort-tourism (resort-name Ebanopoli) (tourism-type mountain) (score 5))
+    (resort-tourism (resort-name Ebanopoli) (tourism-type thermal) (score 3))
 )
 
 (deffacts RESORT:route-list
     (route (resort-src Olivinopoli) (resort-dst Amarantopoli) (distance 45))
+    (route (resort-src Olivinopoli) (resort-dst Fiordoropoli) (distance 35))
     (route (resort-src Amarantopoli) (resort-dst Mogania) (distance 15))
     (route (resort-src Amarantopoli) (resort-dst Violapoli) (distance 25))
     (route (resort-src Amarantopoli) (resort-dst Fiordoropoli) (distance 45))
     (route (resort-src Violapoli) (resort-dst Fiordoropoli) (distance 45))
     (route (resort-src Mogania) (resort-dst Ebanopoli) (distance 20))
     (route (resort-src Ebanopoli) (resort-dst Violapoli) (distance 50))
-    (route (resort-src Fiordoropoli) (resort-dst Azalina) (distance 30))    
+    (route (resort-src Fiordoropoli) (resort-dst Azalina) (distance 30))   
+    (route (resort-src Fiordoropoli) (resort-dst Fiorpescopoli) (distance 45)) 
     (route (resort-src Azalina) (resort-dst Violapoli) (distance 65))
-    (route (resort-src Violapoli) (resort-dst Fiorperscopoli) (distance 45))
-    (route (resort-src Ebanopoli) (resort-dst Fiorperscopoli) (distance 55))
+    (route (resort-src Azalina) (resort-dst Fiorpescopoli) (distance 55))
+    (route (resort-src Violapoli) (resort-dst Fiorpescopoli) (distance 45))
+    (route (resort-src Ebanopoli) (resort-dst Fiorpescopoli) (distance 55))
     (route (resort-src Ebanopoli) (resort-dst Violapoli) (distance 40))
     (route (resort-src Ebanopoli) (resort-dst Borgo_Foglianova) (distance 50))
     (route (resort-src Ebanopoli) (resort-dst Plumbeopoli) (distance 65))
     (route (resort-src Borgo_Foglianova) (resort-dst Smeraldopoli) (distance 55))
     (route (resort-src Borgo_Foglianova) (resort-dst Biancavilla) (distance 40))
     (route (resort-src Smeraldopoli) (resort-dst Plumbeopoli) (distance 25))
+    (route (resort-src Smeraldopoli) (resort-dst Ebanopoli) (distance 55))
     (route (resort-src Smeraldopoli) (resort-dst Biancavilla) (distance 20))
+    (route (resort-src Smeraldopoli) (resort-dst Azzurropoli) (distance 30))
     (route (resort-src Biancavilla) (resort-dst Isola_Cannella) (distance 15))
+    (route (resort-src Biancavilla) (resort-dst Aranciopoli) (distance 45))
     (route (resort-src Isola_Cannella) (resort-dst Fucsiapoli) (distance 35))
     (route (resort-src Plumbeopoli) (resort-dst Celestopoli) (distance 35))
+    (route (resort-src Plumbeopoli) (resort-dst Azzurropoli) (distance 30))
     (route (resort-src Celestopoli) (resort-dst Zafferanopoli) (distance 15))
     (route (resort-src Celestopoli) (resort-dst Lavandonia) (distance 35))
+    (route (resort-src Celestopoli) (resort-dst Aranciopoli) (distance 25))
     (route (resort-src Zafferanopoli) (resort-dst Azzurropoli) (distance 10))
     (route (resort-src Zafferanopoli) (resort-dst Lavandonia) (distance 20))
     (route (resort-src Zafferanopoli) (resort-dst Aranciopoli) (distance 10))
     (route (resort-src Aranciopoli) (resort-dst Lavandonia) (distance 30))
-    (route (resort-src Aranciopoli) (resort-dst Fucsiapoli) (distance 65))
+    (route (resort-src Aranciopoli) (resort-dst Fucsiapoli) (distance 45))
     (route (resort-src Lavandonia) (resort-dst Fucsiapoli) (distance 55))
 )
 
@@ -752,11 +750,11 @@
 
 (deffacts HOTEL::hotel-list
     (hotel (name OakInn) (resort Biancavilla) (stars 3) (empty 8) (capacity 20))
-    (hotel (name Home) (resort Biancavilla) (stars 1) (empty 12) (capacity 40))
+    (hotel (name TheHome) (resort Biancavilla) (stars 1) (empty 12) (capacity 40))
     (hotel (name GreenGreens) (resort Smeraldopoli) (stars 2) (empty 30) (capacity 40))
     (hotel (name TheCave) (resort  Plumbeopoli) (stars 3) (empty 12) (capacity 20))
     (hotel (name Broks) (resort  Plumbeopoli) (stars 1) (empty 12) (capacity 40))
-    (hotel (name Memory) (resort Lavandonia) (stars 4) (empty 7) (capacity 40))
+    (hotel (name SweetMemory) (resort Lavandonia) (stars 4) (empty 7) (capacity 40))
     (hotel (name HolyHotel) (resort Lavandonia) (stars 3) (empty 10) (capacity 20))
     (hotel (name SeasideHouse) (resort Celestopoli) (stars 3) (empty 15) (capacity 25))
     (hotel (name Mistys) (resort Celestopoli) (stars 1) (empty 20) (capacity 30))
@@ -784,11 +782,11 @@
     (hotel (name Alpha) (resort Violapoli) (stars 1) (empty 25) (capacity 50))
     (hotel (name Beta) (resort Violapoli) (stars 4) (empty 25) (capacity 40))
     (hotel (name Gamma) (resort Violapoli) (stars 1) (empty 35) (capacity 40))
-    (hotel (name Cruise) (resort Fiordoropoli) (stars 2) (empty 35) (capacity 70))
+    (hotel (name TheCruise) (resort Fiordoropoli) (stars 2) (empty 35) (capacity 70))
     (hotel (name FlagHouse) (resort Fiordoropoli) (stars 1) (empty 10) (capacity 50))
     (hotel (name SlowPeace) (resort Azalina) (stars 2) (empty 35) (capacity 40))
     (hotel (name FullMoon) (resort Azalina) (stars 4) (empty 45) (capacity 60))
-    (hotel (name TallWaves) (resort Olovinopoli) (stars 2) (empty 45) (capacity 70))
+    (hotel (name TallWaves) (resort Olivinopoli) (stars 2) (empty 45) (capacity 70))
 )
 
 
@@ -833,7 +831,6 @@
     (pop-focus)
 )
 
-
 (defrule INIT::assert-already-done-init
     (declare (salience -10000))
     (not (already-done-init))
@@ -847,7 +844,6 @@
 =>
     (assert (route (resort-src ?r2) (resort-dst ?r1) (distance ?d)))
 )
-  
   
 (defrule INIT::build-singleton-path
     (resort (name ?r))
@@ -864,7 +860,6 @@
     (assert (path (resorts ?rs ?lr ?nr) (length (+ ?len 1)) (total-distance (+ ?td ?d))))
 )
 
-
 (defrule INIT::remove-suboptimal-distance-path
     ?p1 <- (path (resorts $?rs1) (total-distance ?d1))
     ?p2 <- (path (resorts $?rs2) (total-distance ?d2))
@@ -875,12 +870,21 @@
     (retract ?p2)
 )
 
+(defrule INIT::remove-wrong-length-path
+    (declare (salience -200))
+    ?p <- (path (length ?len))
+    (dv (description the-trip-length) (value ?l))
+    (test (> (abs (- ?l ?len)) 1))
+=>
+    (retract ?p)
+)
+
+
 (defrule INIT::define-duration-unit
     (dv (description the-trip-duration) (value ?d))
 =>
     (assert (dv (description the-duration-unit) (value (max 1 (div ?d ?*DURATION-UNIT-RATE*))) (CF 1.0) (basic TRUE)))
 )
-
 
 (defrule INIT::generate-singleton-duration
     (dv (description the-trip-duration) (value ?d))
@@ -905,6 +909,15 @@
     (assert (duration (days ?dl (- ?d1 ?u) (+ ?d2 ?u) ?dr) (length ?len)))  
 )
 
+(defrule INIT::remove-wrong-length-duration
+    (declare (salience -200))
+    ?d <- (duration (length ?len))
+    (dv (description the-trip-length) (value ?l))
+    (test (> (abs (- ?l ?len)) 1))
+=>
+    (retract ?d)
+)
+
 ;; optional, to remove unbalanced durations and thus reduce the number of possibile combinations
 (defrule INIT::remove-unbalanced-duration
     (declare (salience -200))
@@ -921,12 +934,7 @@
 ;;**********************
   
 (defmodule RATE-RESORT (import COMMON ?ALL) (import RESORT ?ALL))
-  
-(defrule RATE-RESORT::rate-resort-uncertain
-    (resort (name ?r))
-=>
-    (assert (dv (description the-resort) (value ?r) (CF  0.0)))
-)
+ 
 
 (defrule RATE-RESORT::rate-resort-by-tourism-type
     (dv (description the-tourism-type) (value ?t) (CF ?cf))
@@ -937,33 +945,41 @@
     (assert (dv (description the-resort) (value ?r) (CF ?rcf)))
 )
 
+(defrule RATE-RESORT::rate-resort-by-lack-of-interest
+    (resort (name ?r))
+    (not (and (resort-tourism (resort-name ?r) (tourism-type ?t) (score ?s))
+              (dv (description the-tourism-type) (value ?t) (CF ?cf&:(> ?cf 0)))))
+=>
+    (assert (dv (description the-resort) (value ?r) (CF -0.3)))
+)
+
 
 (defrule RATE-RESORT::rate-resort-by-banned-resorts
     (dv (description the-banned-resort) (value ?r) (CF ?cf))
     (resort (name ?r))
 =>
-    (assert (dv (description the-resort) (value ?r) (CF (- 0 ?cf))))
+    (assert (dv (description the-resort) (value ?r) (CF (* -0.5 ?cf))))
 )
 
 (defrule RATE-RESORT::rate-resort-by-banned-regions
     (dv (description the-banned-region) (value ?rg) (CF ?cf))
     (resort (name ?r) (region ?rg))
 =>
-    (assert (dv (description the-resort) (value ?r) (CF (- 0 ?cf))))
+    (assert (dv (description the-resort) (value ?r) (CF (* -0.3 ?cf))))
 )
 
 (defrule RATE-RESORT::rate-resort-by-favourite-resorts
     (dv (description the-favourite-resort) (value ?r) (CF ?cf))
     (resort (name ?r))
 =>
-    (assert (dv (description the-resort) (value ?r) (CF ?cf)))
+    (assert (dv (description the-resort) (value ?r) (CF (* 0.5 ?cf))))
 )
 
 (defrule RATE-RESORT::rate-resort-by-favourite-regions
     (dv (description the-favourite-region) (value ?rg) (CF ?cf))
     (resort (name ?r) (region ?rg))
 =>
-    (assert (dv (description the-resort) (value ?r) (CF ?cf)))
+    (assert (dv (description the-resort) (value ?r) (CF (* 0.3 ?cf))))
 )
 
 
@@ -982,12 +998,6 @@
 
 (defmodule RATE-HOTEL (import COMMON ?ALL) (import HOTEL ?ALL))
 
-(defrule RATE-HOTEL::rate-hotel-uncertain
-    (hotel (name ?h) (resort ?r))
-=>
-    (assert (dv (description the-hotel-in ?r) (value ?h) (CF  0.0)))
-)
-
 (defrule RATE-HOTEL::rate-hotel-by-stars
     (dv (description the-optimal-hotel-stars) (value ?s) (CF ?cf))
     (hotel (name ?h) (resort ?r) (stars ?s))
@@ -999,7 +1009,7 @@
     (dv (description the-people-number) (value ?p))
     (hotel (name ?h) (resort ?r) (empty ?e&:(> ?e ?p)) (capacity ?c))
 =>
-    (bind ?new-cf (* 0.6 (/ ?e ?c)))
+    (bind ?new-cf (* 0.4 (/ ?e ?c)))
     (assert (dv (description the-hotel-in ?r) (value ?h) (CF ?new-cf)))
 )
 
@@ -1074,20 +1084,21 @@
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
-(defrule BUILD-AND-RATE-TRIP::rate-trip-by-routes
-    (trip (trip-id ?id) (resorts $?rl ?rs ?rd $?rr) (length ?len))
-    (dv (description use-route) (value ?rs ?rd) (CF ?rcf))
-=>  
-    (bind ?tcf (/ ?rcf (- ?len 1)))       ;;len resorts imply len-1 routes
-    (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
-)
+;;(defrule BUILD-AND-RATE-TRIP::rate-trip-by-routes
+;;    (trip (trip-id ?id) (resorts $?rl ?rs ?rd $?rr) (length ?len))
+;;    (dv (description use-route) (value ?rs ?rd) (CF ?rcf))
+;;=>  
+;;    (bind ?tcf (/ ?rcf (- ?len 1)))       ;;len resorts imply len-1 routes
+;;    (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
+;;)
 
 (defrule BUILD-AND-RATE-TRIP::rate-trip-by-hotels 
     (trip (trip-id ?id) (resorts $?rl ?r $?rr) (hotels $?hs) (days $?ds) (length ?len))
     (dv (description the-hotel-in ?r) (value ?h) (CF ?hcf))
     (test (eq ?h (nth (member$ ?r (create$ ?rl ?r ?rr)) ?hs))) 
     (dv (description the-trip-duration) (value ?td))
-=>  (bind ?index (member$ ?r (create$ ?rl ?r ?rr)))
+=>  
+    (bind ?index (member$ ?r (create$ ?rl ?r ?rr)))
     (bind ?d (nth ?index ?ds))
     (bind ?tcf (/ (* ?d ?hcf) (* ?td ?len)))
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
@@ -1097,7 +1108,7 @@
     (trip (trip-id ?id) (length ?len))
     (dv (description the-trip-length) (value ?tl))
 => 
-    (bind ?tcf (- 0.7 (* (abs (- ?tl ?len)) (/ 1.4 (- ?*MAX-TRIP-LENGTH* 1)))))
+    (bind ?tcf (- 0.4 (* (abs (- ?tl ?len)) (/ 0.8 (- ?*MAX-TRIP-LENGTH* 1)))))
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
@@ -1106,7 +1117,7 @@
     (dv (description the-budget-limit) (value ?b))
 =>
     (bind ?total-cost (+ (expand$ ?cs) 0))
-    (bind ?tcf (min 0.5 (max -0.9 (/ (- ?b ?total-cost) ?*MAX-BUDGET-TOLERANCE*))))   
+    (bind ?tcf (min 0.1 (max -0.9 (/ (- ?b ?total-cost) ?*MAX-BUDGET-TOLERANCE*))))   
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
@@ -1200,6 +1211,14 @@
 
 (defmodule INVALIDATE (import COMMON ?ALL) (import TRIP ?ALL))
 
+(defrule INVALIDATE::plsstop
+    (declare (salience 200))
+    (iteration (number ?i))
+=>
+    (halt)
+) 
+
+
 (defrule INVALIDATE::invalidate-basic-dv
     ?fact <- (dv (basic TRUE) (updated TRUE))
 =>  
@@ -1233,12 +1252,7 @@
 )
 
 
-(defrule REFRESH::plsstop
-    (declare (salience -200))
-    (iteration (number ?i))
-=>
-    (halt)
-) 
+
 
 
 (defrule REFRESH::on-exit
