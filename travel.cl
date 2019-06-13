@@ -4,7 +4,7 @@
 ;;****************
 
 (deffacts MAIN::define-phase-sequence
-(phase-sequence ASK-QUESTION QUESTION-INFERENCE INIT RATE-RESORT RATE-HOTEL BUILD-AND-RATE-TRIP PRINT-RESULTS INVALIDATE REFRESH)
+(phase-sequence ASK-QUESTION QUESTION-INFERENCE INIT RATE-RESORT RATE-HOTEL BUILD-AND-RATE-TRIP PRINT-RESULTS INVALIDATE)
 )
 
 (defrule MAIN::change-phase
@@ -30,7 +30,7 @@
     ?*MAX-ROUTE-DISTANCE-TOLERANCE* = 75
     ?*MAX-BUDGET-TOLERANCE* = 500
     ?*MIN-PRINT-CF* = 0.35
-    ?*DURATION-UNIT-RATE* = 7
+    ?*DURATION-UNIT-RATE* = 5
 )
 
 (deftemplate COMMON::iteration
@@ -41,8 +41,7 @@
     (multislot description)
     (multislot value)
     (slot CF (default 1.0) (range -1.0 1.0))
-    (slot basic (default FALSE))   ;;A basic dv must be reasserted at every iteration. A non-basic one must be removed
-    (slot updated (default TRUE))  ;;Every dv is considered updated at creation; it is needed in phases INVALIDATE and REFRESH
+    (slot basic (default FALSE))   ;; A non-basic dv must be removed at the end of iteration
 )
 
 (deffacts COMMON::first-iteration
@@ -283,9 +282,9 @@
 
 
 (defrule ASK-QUESTION::precursor-is-satisfied
+    (iteration (number ?i))
     ?f <- (question (precursors ?t is ?v $?rest))
     (preference (topic ?t) (answer-value ?v))
-    (iteration (number ?i))
 => 
     (modify ?f (iteration ?i) (precursors ?rest))
 )
@@ -528,12 +527,14 @@
     (preference (topic trip-length-generic) (answer-value no))
 =>
     (assert (dv (description the-trip-length) (value 1) (CF 1.0) (basic TRUE)))
+    (assert (dv (description the-duration-unit) (value (max 1 (div 1 ?*DURATION-UNIT-RATE*))) (CF 1.0) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::trip-length
     (preference (topic trip-length) (answer-value ?v))
 =>
     (assert (dv (description the-trip-length) (value ?v) (CF 1.0) (basic TRUE)))
+    (assert (dv (description the-duration-unit) (value (max 1 (div ?v ?*DURATION-UNIT-RATE*))) (CF 1.0) (basic TRUE)))
 )
 
 ;;------------ START RESORT ------------
@@ -552,13 +553,6 @@
     (assert (dv (description the-end-resort) (value ?r) (CF 1.0) (basic TRUE)))
 )
 
-;;------------ DAYS PARTITIONING ------------ UNUSED
-
-(defrule QUESTION-INFERENCE::days-partitioning
-    (preference (topic days-partitioning) (answer-value yes))
-=>
-    (assert (dv (description the-days-partitioning) (value yes) (CF 1.0) (basic TRUE)))
-)
 
 ;;------------ BAN RESORT ------------
 
@@ -823,28 +817,25 @@
 
 (defmodule INIT  (import COMMON ?ALL) (import RESORT ?ALL) (import HOTEL ?ALL) (import TRIP ?ALL))  
 
-
-(defrule INIT::check-already-done-init
-    (declare (salience 10000))
-    (already-done-init)
-=>
-    (pop-focus)
-)
-
-(defrule INIT::assert-already-done-init
-    (declare (salience -10000))
-    (not (already-done-init))
-=>
-    (assert (already-done-init))
-)
+;;;;; ROUTES ;;;;;;;
 
 (defrule INIT::build-symmetric-route
     (route (resort-src ?r1) (resort-dst ?r2) (distance ?d))
-    (not (route (resort-src ?r2) (resort-dst ?r1) (distance ?d)))
+    (not (route (resort-src ?r2) (resort-dst ?r1)))
 =>
     (assert (route (resort-src ?r2) (resort-dst ?r1) (distance ?d)))
 )
-  
+
+(defrule INIT::rate-route
+    (route (resort-src ?src) (resort-dst ?dst) (distance ?d))
+    (dv (description the-max-route-distance) (value ?v))
+=>
+    (bind ?rcf (min 0.2 (max -0.9 (/ (- ?v ?d) ?*MAX-ROUTE-DISTANCE-TOLERANCE*)))) 
+    (assert (dv (description use-route) (value ?src ?dst) (CF ?rcf) (basic TRUE))) 
+)
+
+;;;;;;; PATHS ;;;;;;;;;;;;;
+
 (defrule INIT::build-singleton-path
     (resort (name ?r))
 =>
@@ -880,11 +871,7 @@
 )
 
 
-(defrule INIT::define-duration-unit
-    (dv (description the-trip-duration) (value ?d))
-=>
-    (assert (dv (description the-duration-unit) (value (max 1 (div ?d ?*DURATION-UNIT-RATE*))) (CF 1.0) (basic TRUE)))
-)
+;;;;;;; DURATIONS ;;;;;;;;;
 
 (defrule INIT::generate-singleton-duration
     (dv (description the-trip-duration) (value ?d))
@@ -918,7 +905,7 @@
     (retract ?d)
 )
 
-;; optional, to remove unbalanced durations and thus reduce the number of possibile combinations
+
 (defrule INIT::remove-unbalanced-duration
     (declare (salience -200))
     (dv (description the-duration-unit) (value ?u))
@@ -937,6 +924,7 @@
  
 
 (defrule RATE-RESORT::rate-resort-by-tourism-type
+    (iteration (number ?i))
     (dv (description the-tourism-type) (value ?t) (CF ?cf))
     (resort (name ?r))
     (resort-tourism (resort-name ?r) (tourism-type ?t) (score ?s))
@@ -946,15 +934,16 @@
 )
 
 (defrule RATE-RESORT::rate-resort-by-lack-of-interest
-    (resort (name ?r))
+    (iteration (number ?i))
+    (resort (name ?r))  
     (not (and (resort-tourism (resort-name ?r) (tourism-type ?t) (score ?s))
               (dv (description the-tourism-type) (value ?t) (CF ?cf&:(> ?cf 0)))))
 =>
     (assert (dv (description the-resort) (value ?r) (CF -0.3)))
 )
 
-
 (defrule RATE-RESORT::rate-resort-by-banned-resorts
+    (iteration (number ?i))
     (dv (description the-banned-resort) (value ?r) (CF ?cf))
     (resort (name ?r))
 =>
@@ -962,6 +951,7 @@
 )
 
 (defrule RATE-RESORT::rate-resort-by-banned-regions
+    (iteration (number ?i))
     (dv (description the-banned-region) (value ?rg) (CF ?cf))
     (resort (name ?r) (region ?rg))
 =>
@@ -969,6 +959,7 @@
 )
 
 (defrule RATE-RESORT::rate-resort-by-favourite-resorts
+    (iteration (number ?i))
     (dv (description the-favourite-resort) (value ?r) (CF ?cf))
     (resort (name ?r))
 =>
@@ -976,21 +967,12 @@
 )
 
 (defrule RATE-RESORT::rate-resort-by-favourite-regions
+    (iteration (number ?i))
     (dv (description the-favourite-region) (value ?rg) (CF ?cf))
     (resort (name ?r) (region ?rg))
 =>
     (assert (dv (description the-resort) (value ?r) (CF (* 0.3 ?cf))))
 )
-
-
-(defrule RATE-RESORT::rate-route
-    (route (resort-src ?src) (resort-dst ?dst) (distance ?d))
-    (dv (description the-max-route-distance) (value ?v))
-=>
-    (bind ?rcf (min 0.3 (max -0.9 (/ (- ?v ?d) ?*MAX-ROUTE-DISTANCE-TOLERANCE*)))) 
-    (assert (dv (description use-route) (value ?src ?dst) (CF ?rcf))) 
-)
-
 
 ;;*********************
 ;;* MODULE RATE-HOTEL *
@@ -999,6 +981,7 @@
 (defmodule RATE-HOTEL (import COMMON ?ALL) (import HOTEL ?ALL))
 
 (defrule RATE-HOTEL::rate-hotel-by-stars
+    (iteration (number ?i))
     (dv (description the-optimal-hotel-stars) (value ?s) (CF ?cf))
     (hotel (name ?h) (resort ?r) (stars ?s))
 =>
@@ -1006,6 +989,7 @@
 )
 
 (defrule RATE-HOTEL::rate-hotel-by-availability
+    (iteration (number ?i))
     (dv (description the-people-number) (value ?p))
     (hotel (name ?h) (resort ?r) (empty ?e&:(> ?e ?p)) (capacity ?c))
 =>
@@ -1014,11 +998,13 @@
 )
 
 (defrule RATE-HOTEL::rate-hotel-by-availability-full
+    (iteration (number ?i))
     (dv (description the-people-number) (value ?p))
     (hotel (name ?h) (resort ?r) (empty ?e&:(< ?e ?p)))
 =>
     (assert (dv (description the-hotel-in ?r) (value ?h) (CF -1.0)))
 )
+
 
 ;;******************************
 ;;* MODULE BUILD-AND-RATE-TRIP *
@@ -1026,36 +1012,38 @@
 
 (defmodule BUILD-AND-RATE-TRIP (import COMMON ?ALL) (import HOTEL ?ALL) (import TRIP ?ALL))
 
-;;;;;; ON-ENTER AND ON-EXIT ;;;;;;;;
-
-(defrule BUILD-AND-RATE-TRIP::on-enter
-    (declare (salience 1000))
-    (not (must-build-trip))
-=>
-    (assert (must-build-trip))
-) 
-
-(defrule BUILD-AND-RATE-TRIP::on-exit
-    (declare (salience -1000))
-    ?fact <- (must-build-trip)
-=>
-    (retract ?fact)
-    (pop-focus)
-) 
 
 ;;;;;;;;; RULES FOR BUILDING TRIPS ;;;;;;;;
 
 (defrule BUILD-AND-RATE-TRIP::build-trip
     (declare (salience 600))
-    (must-build-trip)
+    (iteration (number ?i))
     (path (resorts $?rs) (length ?len))
     (duration (days $?ds) (length ?len))
 =>
     (assert (trip (resorts ?rs) (days ?ds) (length ?len)))
 )
 
-(defrule BUILD-AND-RATE-TRIP::fill-trip-hotels-and-costs
+(defrule BUILD-AND-RATE-TRIP::trip-pruning-by-resort
     (declare (salience 500))
+    ?t <- (trip (resorts $?rl ?r1 $?rm ?r2 $?rr))
+    (dv (description the-resort) (value ?r1) (CF ?cf1&:(<= ?cf1 0.3)))
+    (dv (description the-resort) (value ?r2) (CF ?cf2&:(<= ?cf2 0.3)))
+=>
+    (retract ?t)
+)
+
+(defrule BUILD-AND-RATE-TRIP::trip-pruning-by-hotel
+    (declare (salience 500))
+    ?t <- (trip (resorts $?rl ?r1 $?rm ?r2 $?rr))
+    (not (dv (description the-hotel-in ?r1) (value ?h1) (CF ?cf1&:(>= ?cf1 0.2))))
+    (not (dv (description the-hotel-in ?r2) (value ?h2) (CF ?cf2&:(>= ?cf2 0.2)))) 
+=>
+    (retract ?t)
+)
+
+(defrule BUILD-AND-RATE-TRIP::fill-trip-hotels-and-costs
+    (declare (salience 200))
     ?t <- (trip (resorts $?rl ?r $?rr) (hotels $?hs) (days $?ds) (costs $?cs))
     (test (eq (nth (member$ ?r (create$ ?rl ?r ?rr)) ?cs) 0))
     (dv (description the-hotel-in ?r) (value ?h) (CF ?hcf))
@@ -1070,8 +1058,16 @@
     (modify ?t (hotels (replace$ ?hs ?index ?index ?h)) (costs (replace$ ?cs ?index ?index ?cost-all-days)))
 )
 
-;;;;;;;;; RULES FOR RATING TRIPS ;;;;;;;;;;
 
+(defrule BUILD-AND-RATE-TRIP::plsstop
+    (declare (salience 100))
+    (iteration (number ?i))
+=>
+    (halt)
+) 
+
+
+;;;;;;;;; RULES FOR RATING TRIPS ;;;;;;;;;;
 
 (defrule BUILD-AND-RATE-TRIP::rate-trip-by-resorts
     (trip (trip-id ?id) (resorts $?rl ?r $?rr) (days $?ds) (length ?len))
@@ -1080,17 +1076,17 @@
 => 
     (bind ?index (member$ ?r (create$ ?rl ?r ?rr)))
     (bind ?d (nth ?index ?ds))
-    (bind ?tcf (/ (* ?d ?rcf) (* ?td ?len)))
+    (bind ?tcf (/ (* ?d ?rcf) ?td))
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
-;;(defrule BUILD-AND-RATE-TRIP::rate-trip-by-routes
-;;    (trip (trip-id ?id) (resorts $?rl ?rs ?rd $?rr) (length ?len))
-;;    (dv (description use-route) (value ?rs ?rd) (CF ?rcf))
-;;=>  
-;;    (bind ?tcf (/ ?rcf (- ?len 1)))       ;;len resorts imply len-1 routes
-;;    (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
-;;)
+(defrule BUILD-AND-RATE-TRIP::rate-trip-by-routes
+    (trip (trip-id ?id) (resorts $?rl ?rs ?rd $?rr) (length ?len))
+    (dv (description use-route) (value ?rs ?rd) (CF ?rcf))
+=>  
+    (bind ?tcf (/ ?rcf (- ?len 1)))       ;;len resorts imply len-1 routes
+    (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
+)
 
 (defrule BUILD-AND-RATE-TRIP::rate-trip-by-hotels 
     (trip (trip-id ?id) (resorts $?rl ?r $?rr) (hotels $?hs) (days $?ds) (length ?len))
@@ -1100,7 +1096,7 @@
 =>  
     (bind ?index (member$ ?r (create$ ?rl ?r ?rr)))
     (bind ?d (nth ?index ?ds))
-    (bind ?tcf (/ (* ?d ?hcf) (* ?td ?len)))
+    (bind ?tcf (/ (* ?d ?hcf) ?td))
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
@@ -1154,30 +1150,14 @@
   
 (defmodule PRINT-RESULTS (import COMMON ?ALL) (import TRIP ?ALL))
 
-(defrule PRINT-RESULTS::on-enter
-    (declare (salience 500))
-    (not (printed-trips ?p))
-=>
-    (assert (printed-trips 1))
-)
-
-(defrule PRINT-RESULTS::on-exit
-    (declare (salience -500))
-    ?fact <- (printed-trips ?p)
-=>
-    (retract ?fact)
-    (pop-focus)
-)
-
-
 (defrule PRINT-RESULTS::results-header
-   (declare (salience 10))
-   (printed-trips 1)
+   (declare (salience 500))
    (iteration (number ?i))
-   =>
+=>
    (printout t  crlf crlf)
    (printout t " >>>>>>>>>>>>>>>   SELECTED TRIPS (ITERATION " (+ ?i 1) ")  <<<<<<<<<<<<<<<"  crlf)
    (printout t  crlf)
+   (assert (printed-trips 1))
 )
    
 
@@ -1203,7 +1183,15 @@
   (printout t "       _____________________________________________________" crlf)
   (printout t  crlf)
 ) 
-   
+
+(defrule PRINT-RESULTS::on-exit
+    (declare (salience -500))
+    ?fact <- (printed-trips ?p)
+=>
+    (retract ?fact)
+    (pop-focus)
+)
+
 
 ;;*********************
 ;;* MODULE INVALIDATE *
@@ -1211,19 +1199,7 @@
 
 (defmodule INVALIDATE (import COMMON ?ALL) (import TRIP ?ALL))
 
-(defrule INVALIDATE::plsstop
-    (declare (salience 200))
-    (iteration (number ?i))
-=>
-    (halt)
-) 
 
-
-(defrule INVALIDATE::invalidate-basic-dv
-    ?fact <- (dv (basic TRUE) (updated TRUE))
-=>  
-    (modify ?fact (updated FALSE))
-)
 
 (defrule INVALIDATE::remove-derived-dv
     ?fact <- (dv (basic FALSE))
@@ -1237,25 +1213,7 @@
     (retract ?t)
 )
 
-
-;;******************
-;;* MODULE REFRESH *
-;;******************
-
-(defmodule REFRESH (import COMMON ?ALL))
-
-
-(defrule REFRESH::refresh-basic-dv
-    ?fact <- (dv (basic TRUE) (updated FALSE))
-=>  
-    (modify ?fact (updated TRUE))
-)
-
-
-
-
-
-(defrule REFRESH::on-exit
+(defrule INVALIDATE::on-exit
     (declare (salience -1000))
     ?fact <- (iteration (number ?i))
 =>
@@ -1263,4 +1221,12 @@
     (assert (iteration (number (+ ?i 1))))  ;;increment iteration number
     (pop-focus)
 )
+
+
+(defrule INVALIDATE::plsstop
+    (declare (salience 400))
+    (iteration (number ?i))
+=>
+    (halt)
+) 
 
