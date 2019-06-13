@@ -7,6 +7,7 @@
 (phase-sequence ASK-QUESTION QUESTION-INFERENCE INIT RATE-RESORT RATE-HOTEL BUILD-AND-RATE-TRIP PRINT-RESULTS INVALIDATE)
 )
 
+
 (defrule MAIN::change-phase
     (declare (salience -1000))
     ?list <- (phase-sequence ?next-phase $?other-phases)
@@ -38,9 +39,10 @@
 )
 
 (deftemplate COMMON::dv 
+    (slot dv-id (default-dynamic (gensym*)))
     (multislot description)
     (multislot value)
-    (slot CF (default 1.0) (range -1.0 1.0))
+    (slot CF (type FLOAT) (range -1.0 1.0) (default 0.0) )
     (slot basic (default FALSE))   ;; A non-basic dv must be removed at the end of iteration
 )
 
@@ -519,6 +521,7 @@
     (preference (topic trip-duration) (answer-value ?v))
 =>
     (assert (dv (description the-trip-duration) (value ?v) (CF 1.0) (basic TRUE)))
+    (assert (dv (description the-duration-unit) (value (max 1 (div ?v ?*DURATION-UNIT-RATE*))) (CF 1.0) (basic TRUE)))
 )
 
 ;;------------ TRIP LENGTH ------------
@@ -527,14 +530,12 @@
     (preference (topic trip-length-generic) (answer-value no))
 =>
     (assert (dv (description the-trip-length) (value 1) (CF 1.0) (basic TRUE)))
-    (assert (dv (description the-duration-unit) (value (max 1 (div 1 ?*DURATION-UNIT-RATE*))) (CF 1.0) (basic TRUE)))
 )
 
 (defrule QUESTION-INFERENCE::trip-length
     (preference (topic trip-length) (answer-value ?v))
 =>
     (assert (dv (description the-trip-length) (value ?v) (CF 1.0) (basic TRUE)))
-    (assert (dv (description the-duration-unit) (value (max 1 (div ?v ?*DURATION-UNIT-RATE*))) (CF 1.0) (basic TRUE)))
 )
 
 ;;------------ START RESORT ------------
@@ -559,7 +560,7 @@
 (defrule QUESTION-INFERENCE::ban-resort
     (preference (topic ban-resort) (answer-value ?r))
 =>
-    (assert (dv (description the-banned-resort) (value ?r) (CF 0.7) (basic TRUE)))
+    (assert (dv (description the-banned-resort) (value ?r) (CF 1.0) (basic TRUE)))
 )
 
 ;;------------ BAN REGION ------------
@@ -567,7 +568,7 @@
 (defrule QUESTION-INFERENCE::ban-region
     (preference (topic ban-region) (answer-value ?r))
 =>
-    (assert (dv (description the-banned-region) (value ?r) (CF 0.7) (basic TRUE)))
+    (assert (dv (description the-banned-region) (value ?r) (CF 1.0) (basic TRUE)))
 )
 
 ;;------------ FAVOR RESORT ------------
@@ -575,7 +576,7 @@
 (defrule QUESTION-INFERENCE::favor-resort
     (preference (topic favor-resort) (answer-value ?r))
 =>
-    (assert (dv (description the-favourite-resort) (value ?r) (CF 0.7) (basic TRUE)))
+    (assert (dv (description the-favourite-resort) (value ?r) (CF 1.0) (basic TRUE)))
 )
 
 ;;------------ FAVOR REGION ------------
@@ -583,7 +584,7 @@
 (defrule QUESTION-INFERENCE::favor-region
     (preference (topic favor-region) (answer-value ?r))
 =>
-    (assert (dv (description the-favourite-region) (value ?r) (CF 0.7) (basic TRUE)))
+    (assert (dv (description the-favourite-region) (value ?r) (CF 1.0) (basic TRUE)))
 )
 
 
@@ -642,10 +643,10 @@
     (resort-tourism (resort-name Smeraldopoli) (tourism-type lake) (score 3))
     (resort-tourism (resort-name Plumbeopoli) (tourism-type mountain) (score 3))
     (resort-tourism (resort-name Plumbeopoli) (tourism-type cultural) (score 4))
-    (resort-tourism (resort-name Celestopoli) (tourism-type sea) (score 3))
+    (resort-tourism (resort-name Celestopoli) (tourism-type sea) (score 2))
     (resort-tourism (resort-name Celestopoli) (tourism-type sportive) (score 4))
     (resort-tourism (resort-name Celestopoli) (tourism-type enogastronomic) (score 3))
-    (resort-tourism (resort-name Aranciopoli) (tourism-type sea) (score 5))
+    (resort-tourism (resort-name Aranciopoli) (tourism-type sea) (score 4))
     (resort-tourism (resort-name Aranciopoli) (tourism-type sportive) (score 2))
     (resort-tourism (resort-name Aranciopoli) (tourism-type cultural) (score 1))
     (resort-tourism (resort-name Lavandonia) (tourism-type mountain) (score 3))
@@ -666,7 +667,7 @@
     (resort-tourism (resort-name Isola_Cannella) (tourism-type cultural) (score 3))
     (resort-tourism (resort-name Borgo_Foglianova) (tourism-type cultural) (score 3))
     (resort-tourism (resort-name Borgo_Foglianova) (tourism-type sea) (score 1))
-    (resort-tourism (resort-name Fiorpescopoli) (tourism-type sea) (score 3))
+    (resort-tourism (resort-name Fiorpescopoli) (tourism-type sea) (score 4))
     (resort-tourism (resort-name Fiorpescopoli) (tourism-type enogastronomic) (score 3))
     (resort-tourism (resort-name Violapoli) (tourism-type cultural) (score 4))
     (resort-tourism (resort-name Violapoli) (tourism-type religious) (score 4))
@@ -678,7 +679,7 @@
     (resort-tourism (resort-name Amarantopoli) (tourism-type cultural) (score 5))
     (resort-tourism (resort-name Amarantopoli) (tourism-type naturalistic) (score 3))
     (resort-tourism (resort-name Amarantopoli) (tourism-type religious) (score 3))
-    (resort-tourism (resort-name Olivinopoli) (tourism-type sea) (score 3))
+    (resort-tourism (resort-name Olivinopoli) (tourism-type sea) (score 4))
     (resort-tourism (resort-name Olivinopoli) (tourism-type enogastronomic) (score 4))
     (resort-tourism (resort-name Mogania) (tourism-type mountain) (score 3))
     (resort-tourism (resort-name Mogania) (tourism-type lake) (score 5))
@@ -799,6 +800,7 @@
 (deftemplate TRIP::duration
     (multislot days (type INTEGER))
     (slot length (type INTEGER))
+    (slot target (type INTEGER))
 )
 
 (deftemplate TRIP::trip
@@ -830,7 +832,7 @@
     (route (resort-src ?src) (resort-dst ?dst) (distance ?d))
     (dv (description the-max-route-distance) (value ?v))
 =>
-    (bind ?rcf (min 0.2 (max -0.9 (/ (- ?v ?d) ?*MAX-ROUTE-DISTANCE-TOLERANCE*)))) 
+    (bind ?rcf (min 0.1 (max -0.9 (/ (- ?v ?d) ?*MAX-ROUTE-DISTANCE-TOLERANCE*)))) 
     (assert (dv (description use-route) (value ?src ?dst) (CF ?rcf) (basic TRUE))) 
 )
 
@@ -844,7 +846,8 @@
 
 (defrule INIT::build-path
     (path (resorts $?rs ?lr) (length ?len) (total-distance ?td))
-    (test (< ?len ?*MAX-TRIP-LENGTH*))
+    (dv (description the-trip-length) (value ?tl))
+    (test (< ?len (min (+ ?tl 1) ?*MAX-TRIP-LENGTH*)))
     (route (resort-src ?lr) (resort-dst ?nr) (distance ?d)) 
     (test (eq (member$ ?nr (create$ ?rs ?lr)) FALSE))
 =>
@@ -852,6 +855,7 @@
 )
 
 (defrule INIT::remove-suboptimal-distance-path
+    (declare (salience 100))
     ?p1 <- (path (resorts $?rs1) (total-distance ?d1))
     ?p2 <- (path (resorts $?rs2) (total-distance ?d2))
     (test (and (neq ?p1 ?p2) (<= ?d1 ?d2)))
@@ -873,44 +877,66 @@
 
 ;;;;;;; DURATIONS ;;;;;;;;;
 
-(defrule INIT::generate-singleton-duration
+(defrule INIT::base-exact-duration
     (dv (description the-trip-duration) (value ?d))
-=>
-    (assert (duration (days ?d) (length 1)))  
-)
-
-(defrule INIT::generate-duration
-    (dv (description the-duration-unit) (value ?u))
-    (duration (days $?ds ?d) (length ?len))
-    (test (< (length$ (create$ ?ds ?d)) ?*MAX-TRIP-LENGTH*))
-    (test (> ?d ?u))
-=>
-    (assert (duration (days ?ds (- ?d ?u) ?u) (length (+ ?len 1))))
-)
-
-(defrule INIT::permutate-duration
-    (dv (description the-duration-unit) (value ?u))
-    (duration (days $?dl ?d1 ?d2 $?dr) (length ?len))
-    (test (> ?d1 ?u))
-=>
-    (assert (duration (days ?dl (- ?d1 ?u) (+ ?d2 ?u) ?dr) (length ?len)))  
-)
-
-(defrule INIT::remove-wrong-length-duration
-    (declare (salience -200))
-    ?d <- (duration (length ?len))
     (dv (description the-trip-length) (value ?l))
-    (test (> (abs (- ?l ?len)) 1))
 =>
-    (retract ?d)
+    (bind ?dur (div ?d ?l))
+    (assert (duration (days ?dur) (length 1) (target ?l)))
 )
 
+(defrule INIT::base-shorter-duration
+    (dv (description the-trip-duration) (value ?d))
+    (dv (description the-trip-length) (value ?l))
+    (test (> ?l 1))
+=>
+    (bind ?tl (- ?l 1))
+    (bind ?dur (div ?d ?tl))
+    (assert (duration (days ?dur) (length 1) (target ?tl)))
+)
+
+(defrule INIT::base-longer-duration
+    (dv (description the-trip-duration) (value ?d))
+    (dv (description the-trip-length) (value ?l))
+    (test (< ?l ?*MAX-TRIP-LENGTH*))
+=>
+    (bind ?tl (+ ?l 1))
+    (bind ?dur (div ?d ?tl))
+    (assert (duration (days ?dur) (length 1) (target ?tl)))
+)
+
+
+(defrule INIT::complete-base-durations
+    ?fact <- (duration (days $?ds ?d) (length ?l) (target ?t&:(< ?l ?t)))
+=>
+    (modify ?fact (days ?ds ?d ?d) (length (+ ?l 1)))
+)
+
+
+(defrule INIT::increment-invalid-duration
+    (duration (days $?dl ?d $?dr) (length ?l) (target ?t))
+    (test (eq ?t ?l))
+    (dv (description the-trip-duration) (value ?td))
+    (test (< (+ (expand$ (create$ ?dl ?d ?dr)) 0) ?td))
+    ;;(not (duration (days $?dl ?dn&:(eq ?dn (+ ?d 1)) $?dr)))
+=>
+    (assert (duration (days ?dl (+ ?d 1) ?dr) (length ?l) (target ?l)))
+)
+
+
+(defrule INIT::remove-invalid-duration
+    (declare (salience -200))
+    (dv (description the-trip-duration) (value ?d))
+    ?fact <- (duration (days $?ds))
+    (test (< (+ (expand$ (create$ ?ds)) 0) ?d))
+=>
+    (retract ?fact)  
+)
 
 (defrule INIT::remove-unbalanced-duration
     (declare (salience -200))
-    (dv (description the-duration-unit) (value ?u))
-    ?fact <- (duration (days $?dl ?d1 $?dc ?d2 $?dr) (length ?len))
-    (test (> (abs (- ?d1 ?d2)) ?u))
+    ?fact <- (duration (days $?dl ?d1 $?dc ?d2 $?dr))
+    (test (> (abs (- ?d1 ?d2)) 1))
 =>
     (retract ?fact)  
 )
@@ -944,34 +970,34 @@
 
 (defrule RATE-RESORT::rate-resort-by-banned-resorts
     (iteration (number ?i))
-    (dv (description the-banned-resort) (value ?r) (CF ?cf))
+    (dv (description the-banned-resort) (value ?r))
     (resort (name ?r))
 =>
-    (assert (dv (description the-resort) (value ?r) (CF (* -0.5 ?cf))))
+    (assert (dv (description the-resort) (value ?r) (CF -0.7)))
 )
 
 (defrule RATE-RESORT::rate-resort-by-banned-regions
     (iteration (number ?i))
-    (dv (description the-banned-region) (value ?rg) (CF ?cf))
+    (dv (description the-banned-region) (value ?rg))
     (resort (name ?r) (region ?rg))
 =>
-    (assert (dv (description the-resort) (value ?r) (CF (* -0.3 ?cf))))
+    (assert (dv (description the-resort) (value ?r) (CF -0.4)))
 )
 
 (defrule RATE-RESORT::rate-resort-by-favourite-resorts
     (iteration (number ?i))
-    (dv (description the-favourite-resort) (value ?r) (CF ?cf))
+    (dv (description the-favourite-resort) (value ?r))
     (resort (name ?r))
 =>
-    (assert (dv (description the-resort) (value ?r) (CF (* 0.5 ?cf))))
+    (assert (dv (description the-resort) (value ?r) (CF 0.6)))
 )
 
 (defrule RATE-RESORT::rate-resort-by-favourite-regions
     (iteration (number ?i))
-    (dv (description the-favourite-region) (value ?rg) (CF ?cf))
+    (dv (description the-favourite-region) (value ?rg))
     (resort (name ?r) (region ?rg))
 =>
-    (assert (dv (description the-resort) (value ?r) (CF (* 0.3 ?cf))))
+    (assert (dv (description the-resort) (value ?r) (CF 0.3)))
 )
 
 ;;*********************
@@ -1012,6 +1038,12 @@
 
 (defmodule BUILD-AND-RATE-TRIP (import COMMON ?ALL) (import HOTEL ?ALL) (import TRIP ?ALL))
 
+(defrule BUILD-AND-RATE-TRIP::plsstop
+    (declare (salience 700))
+    (iteration (number ?i))
+=>
+    (halt)
+) 
 
 ;;;;;;;;; RULES FOR BUILDING TRIPS ;;;;;;;;
 
@@ -1024,22 +1056,35 @@
     (assert (trip (resorts ?rs) (days ?ds) (length ?len)))
 )
 
-(defrule BUILD-AND-RATE-TRIP::trip-pruning-by-resort
+(defrule BUILD-AND-RATE-TRIP::compute-average-resort-cf
     (declare (salience 500))
-    ?t <- (trip (resorts $?rl ?r1 $?rm ?r2 $?rr))
-    (dv (description the-resort) (value ?r1) (CF ?cf1&:(<= ?cf1 0.3)))
-    (dv (description the-resort) (value ?r2) (CF ?cf2&:(<= ?cf2 0.3)))
+    (iteration (number ?i))
+=>
+    (bind ?sum 0)
+    (bind ?count 0)
+    (do-for-all-facts ((?f dv)) (eq ?f:description (create$ the-resort))
+        (bind ?sum (+ ?sum ?f:CF))
+        (bind ?count (+ ?count 1)))
+    (printout t "average: " (/ ?sum ?count) crlf)
+    (assert (average-resort-cf (/ ?sum ?count)))
+)
+
+(defrule BUILD-AND-RATE-TRIP::trip-pruning
+    (declare (salience 400))
+    (average-resort-cf ?a)
+    ?t <- (trip (resorts $?rl ?r $?rr))
+    (or (dv (description the-resort) (value ?r) (CF ?cf&:(<= ?cf ?a)))
+        (not (dv (description the-hotel-in ?r) (CF ?cf1&:(>= ?cf1 0.2)))))
 =>
     (retract ?t)
 )
 
-(defrule BUILD-AND-RATE-TRIP::trip-pruning-by-hotel
-    (declare (salience 500))
-    ?t <- (trip (resorts $?rl ?r1 $?rm ?r2 $?rr))
-    (not (dv (description the-hotel-in ?r1) (value ?h1) (CF ?cf1&:(>= ?cf1 0.2))))
-    (not (dv (description the-hotel-in ?r2) (value ?h2) (CF ?cf2&:(>= ?cf2 0.2)))) 
+(defrule BUILD-AND-RATE-TRIP::remove-average-resort-cf
+    (declare (salience 300))
+    (iteration (number ?i))
+    ?f <- (average-resort-cf ?a)
 =>
-    (retract ?t)
+    (retract ?f)
 )
 
 (defrule BUILD-AND-RATE-TRIP::fill-trip-hotels-and-costs
@@ -1057,14 +1102,6 @@
     (bind ?cost-all-days (* (nth ?index ?ds) ?cost-all-people))
     (modify ?t (hotels (replace$ ?hs ?index ?index ?h)) (costs (replace$ ?cs ?index ?index ?cost-all-days)))
 )
-
-
-(defrule BUILD-AND-RATE-TRIP::plsstop
-    (declare (salience 100))
-    (iteration (number ?i))
-=>
-    (halt)
-) 
 
 
 ;;;;;;;;; RULES FOR RATING TRIPS ;;;;;;;;;;
@@ -1113,7 +1150,7 @@
     (dv (description the-budget-limit) (value ?b))
 =>
     (bind ?total-cost (+ (expand$ ?cs) 0))
-    (bind ?tcf (min 0.1 (max -0.9 (/ (- ?b ?total-cost) ?*MAX-BUDGET-TOLERANCE*))))   
+    (bind ?tcf (min 0.1 (max -0.8 (/ (- ?b ?total-cost) ?*MAX-BUDGET-TOLERANCE*))))   
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
@@ -1174,7 +1211,7 @@
   (retract ?fact2)
   (bind ?total-cost (+ (expand$ ?cs) 0))
   (printout t  crlf)
-  (printout t " Trip suggestion " ?p " with certainty: " (round (* ?tcf 100)) "%" crlf)
+  (printout t " Trip suggestion " ?p " with certainty: " (/ (round (* ?tcf 1000)) 10) "%" crlf)
   (printout t "  - Resorts to visit: " ?rs crlf)
   (printout t "  - Hotels: " (subseq$ ?hs 1 ?len ) crlf)
   (printout t "  - Days partitioning: " ?ds crlf)
