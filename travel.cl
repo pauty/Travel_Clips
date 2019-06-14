@@ -29,9 +29,9 @@
     ?*HOTEL-BASE-COST* = 50
     ?*HOTEL-ADDITIONAL-COST* = 25
     ?*MAX-ROUTE-DISTANCE-TOLERANCE* = 75
-    ?*MAX-BUDGET-TOLERANCE* = 500
+    ?*MAX-BUDGET-TOLERANCE* = 600
+    ?*UNEVEN-DURATION-TOLERANCE* = 1
     ?*MIN-PRINT-CF* = 0.35
-    ?*DURATION-UNIT-RATE* = 5
 )
 
 (deftemplate COMMON::iteration
@@ -146,11 +146,13 @@
             (valid-answers yes no))
     (question (the-question "Are you looking for a cheap trip or a luxurious and more expensive one? [cheap, normal, expensive] ")
             (preference-topic cost)
+            (skippable FALSE)
             (iteration 0) 
             (valid-answers cheap normal expensive))
     (question (the-question "Do you generally prefer cool or warm places? [cool, both, warm] ")            
             (preference-topic temperature)
             (iteration 0) 
+            (skippable FALSE)
             (valid-answers cool both warm))
     (question (the-question "How many people want to go on vacation? (between 1 and 10 people) ") 
             (preference-topic people-number)
@@ -299,9 +301,9 @@
 =>
     (bind ?q "Are you happy with one of the suggested trips? [yes, no] ")
     (bind ?va (create$ yes no))
-    (bind ?answer (ask-question closed FALSE ?q ?va))
+    (bind ?answer (nth 1 (ask-question closed FALSE ?q ?va)))
     (if (eq ?answer yes) then 
-        (printout t "Thank you for using our system. Have a good vacation!" crlf crlf)
+        (printout t "Thank you for using our expert system. Have a good vacation!" crlf crlf)
         (halt)
         (reset))
 )
@@ -521,7 +523,6 @@
     (preference (topic trip-duration) (answer-value ?v))
 =>
     (assert (dv (description the-trip-duration) (value ?v) (CF 1.0) (basic TRUE)))
-    (assert (dv (description the-duration-unit) (value (max 1 (div ?v ?*DURATION-UNIT-RATE*))) (CF 1.0) (basic TRUE)))
 )
 
 ;;------------ TRIP LENGTH ------------
@@ -632,6 +633,7 @@
     (resort (name Mogania) (region Johto))
     (resort (name Fiordoropoli) (region Johto))
     (resort (name Olivinopoli) (region Johto))
+    (resort (name Fiorlisopoli) (region Johto))
     (resort (name Ebanopoli) (region Johto))
 )
   
@@ -685,6 +687,8 @@
     (resort-tourism (resort-name Mogania) (tourism-type lake) (score 5))
     (resort-tourism (resort-name Ebanopoli) (tourism-type mountain) (score 5))
     (resort-tourism (resort-name Ebanopoli) (tourism-type thermal) (score 3))
+    (resort-tourism (resort-name Fiorlisopoli) (tourism-type sea) (score 4))
+    (resort-tourism (resort-name Fiorlisopoli) (tourism-type sportive) (score 4))
 )
 
 (deffacts RESORT:route-list
@@ -725,6 +729,9 @@
     (route (resort-src Aranciopoli) (resort-dst Lavandonia) (distance 30))
     (route (resort-src Aranciopoli) (resort-dst Fucsiapoli) (distance 45))
     (route (resort-src Lavandonia) (resort-dst Fucsiapoli) (distance 55))
+    (route (resort-src Fiorlisopoli) (resort-dst Olivinopoli) (distance 25))
+    (route (resort-src Fiorlisopoli) (resort-dst Fiordoropoli) (distance 25))
+    (route (resort-src Fiorlisopoli) (resort-dst Azalina) (distance 40))
 )
 
 ;;*****************
@@ -782,6 +789,8 @@
     (hotel (name SlowPeace) (resort Azalina) (stars 2) (empty 35) (capacity 40))
     (hotel (name FullMoon) (resort Azalina) (stars 4) (empty 45) (capacity 60))
     (hotel (name TallWaves) (resort Olivinopoli) (stars 2) (empty 45) (capacity 70))
+    (hotel (name TravelEnd) (resort Fiorlisopoli) (stars 2) (empty 15) (capacity 50))
+    (hotel (name SafariRest) (resort Fiorlisopoli) (stars 3) (empty 45) (capacity 60))
 )
 
 
@@ -792,9 +801,18 @@
 (defmodule TRIP (export ?ALL))
 
 (deftemplate TRIP::path
+    (slot path-id (default-dynamic (gensym*)))
     (multislot resorts)
     (slot length (type INTEGER))
     (slot total-distance (type INTEGER))
+)
+
+(deftemplate TRIP::banned-path
+    (slot path-id)
+)
+
+(deftemplate TRIP::average-resort-cf
+    (slot value)
 )
 
 (deftemplate TRIP::duration
@@ -833,8 +851,9 @@
     (dv (description the-max-route-distance) (value ?v))
 =>
     (bind ?rcf (min 0.1 (max -0.9 (/ (- ?v ?d) ?*MAX-ROUTE-DISTANCE-TOLERANCE*)))) 
-    (assert (dv (description use-route) (value ?src ?dst) (CF ?rcf) (basic TRUE))) 
+    (assert (dv (description use-route) (value ?src ?dst) (CF ?rcf) (basic TRUE)))
 )
+
 
 ;;;;;;; PATHS ;;;;;;;;;;;;;
 
@@ -877,34 +896,23 @@
 
 ;;;;;;; DURATIONS ;;;;;;;;;
 
-(defrule INIT::base-exact-duration
+(defrule INIT::base-duration
     (dv (description the-trip-duration) (value ?d))
     (dv (description the-trip-length) (value ?l))
 =>
     (bind ?dur (div ?d ?l))
     (assert (duration (days ?dur) (length 1) (target ?l)))
+    (if (> ?l 1) then
+        (bind ?tl (- ?l 1))
+        (bind ?dur (div ?d ?tl))
+        (assert (duration (days ?dur) (length 1) (target ?tl)))
+    )
+    (if (< ?l ?*MAX-TRIP-LENGTH*) then
+        (bind ?tl (+ ?l 1))
+        (bind ?dur (div ?d ?tl))
+        (assert (duration (days ?dur) (length 1) (target ?tl)))
+    )
 )
-
-(defrule INIT::base-shorter-duration
-    (dv (description the-trip-duration) (value ?d))
-    (dv (description the-trip-length) (value ?l))
-    (test (> ?l 1))
-=>
-    (bind ?tl (- ?l 1))
-    (bind ?dur (div ?d ?tl))
-    (assert (duration (days ?dur) (length 1) (target ?tl)))
-)
-
-(defrule INIT::base-longer-duration
-    (dv (description the-trip-duration) (value ?d))
-    (dv (description the-trip-length) (value ?l))
-    (test (< ?l ?*MAX-TRIP-LENGTH*))
-=>
-    (bind ?tl (+ ?l 1))
-    (bind ?dur (div ?d ?tl))
-    (assert (duration (days ?dur) (length 1) (target ?tl)))
-)
-
 
 (defrule INIT::complete-base-durations
     ?fact <- (duration (days $?ds ?d) (length ?l) (target ?t&:(< ?l ?t)))
@@ -918,7 +926,6 @@
     (test (eq ?t ?l))
     (dv (description the-trip-duration) (value ?td))
     (test (< (+ (expand$ (create$ ?dl ?d ?dr)) 0) ?td))
-    ;;(not (duration (days $?dl ?dn&:(eq ?dn (+ ?d 1)) $?dr)))
 =>
     (assert (duration (days ?dl (+ ?d 1) ?dr) (length ?l) (target ?l)))
 )
@@ -936,7 +943,7 @@
 (defrule INIT::remove-unbalanced-duration
     (declare (salience -200))
     ?fact <- (duration (days $?dl ?d1 $?dc ?d2 $?dr))
-    (test (> (abs (- ?d1 ?d2)) 1))
+    (test (> (abs (- ?d1 ?d2)) ?*UNEVEN-DURATION-TOLERANCE*))
 =>
     (retract ?fact)  
 )
@@ -1038,23 +1045,9 @@
 
 (defmodule BUILD-AND-RATE-TRIP (import COMMON ?ALL) (import HOTEL ?ALL) (import TRIP ?ALL))
 
-(defrule BUILD-AND-RATE-TRIP::plsstop
-    (declare (salience 700))
-    (iteration (number ?i))
-=>
-    (halt)
-) 
 
 ;;;;;;;;; RULES FOR BUILDING TRIPS ;;;;;;;;
 
-(defrule BUILD-AND-RATE-TRIP::build-trip
-    (declare (salience 600))
-    (iteration (number ?i))
-    (path (resorts $?rs) (length ?len))
-    (duration (days $?ds) (length ?len))
-=>
-    (assert (trip (resorts ?rs) (days ?ds) (length ?len)))
-)
 
 (defrule BUILD-AND-RATE-TRIP::compute-average-resort-cf
     (declare (salience 500))
@@ -1066,25 +1059,39 @@
         (bind ?sum (+ ?sum ?f:CF))
         (bind ?count (+ ?count 1)))
     (printout t "average: " (/ ?sum ?count) crlf)
-    (assert (average-resort-cf (/ ?sum ?count)))
+    (assert (average-resort-cf (value (/ ?sum ?count))))
 )
 
-(defrule BUILD-AND-RATE-TRIP::trip-pruning
+(defrule BUILD-AND-RATE-TRIP::path-pruning-strict
     (declare (salience 400))
-    (average-resort-cf ?a)
-    ?t <- (trip (resorts $?rl ?r $?rr))
-    (or (dv (description the-resort) (value ?r) (CF ?cf&:(<= ?cf ?a)))
-        (not (dv (description the-hotel-in ?r) (CF ?cf1&:(>= ?cf1 0.2)))))
+    (average-resort-cf (value ?a))
+    (path (path-id ?id) (resorts $?rl ?r $?rr))
+    (or (dv (description the-resort) (value ?r) (CF ?cfr&:(< ?cfr ?a)))
+        (not (dv (description the-hotel-in ?r) (CF ?cfh&:(>= ?cfh 0.2)))))
 =>
-    (retract ?t)
+    (assert (banned-path (path-id ?id)))
 )
 
-(defrule BUILD-AND-RATE-TRIP::remove-average-resort-cf
+;;(defrule BUILD-AND-RATE-TRIP::path-pruning-loose
+;;    (declare (salience 400))
+;;    (average-resort-cf (value ?a))
+;;    (path (path-id ?id) (resorts $?rl ?r1 $?rm ?r2 $?rr))
+;;    (or (dv (description the-resort) (value ?r1) (CF ?cfr1&:(< ?cfr1 ?a)))
+;;        (not (dv (description the-hotel-in ?r1) (CF ?cfh1&:(>= ?cfh1 0.2)))))
+;;    (or (dv (description the-resort) (value ?r2) (CF ?cfr2&:(< ?cfr2 ?a)))
+;;        (not (dv (description the-hotel-in ?r1) (CF ?cfh2&:(>= ?cfh2 0.2)))))
+;;=>
+;;    (assert (banned-path (path-id ?id)))
+;;)
+
+(defrule BUILD-AND-RATE-TRIP::build-trip
     (declare (salience 300))
     (iteration (number ?i))
-    ?f <- (average-resort-cf ?a)
+    (path (path-id ?id) (resorts $?rs) (length ?len))
+    (not (banned-path (path-id ?id)))
+    (duration (days $?ds) (length ?len))
 =>
-    (retract ?f)
+    (assert (trip (resorts ?rs) (days ?ds) (length ?len)))
 )
 
 (defrule BUILD-AND-RATE-TRIP::fill-trip-hotels-and-costs
@@ -1117,14 +1124,6 @@
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
-(defrule BUILD-AND-RATE-TRIP::rate-trip-by-routes
-    (trip (trip-id ?id) (resorts $?rl ?rs ?rd $?rr) (length ?len))
-    (dv (description use-route) (value ?rs ?rd) (CF ?rcf))
-=>  
-    (bind ?tcf (/ ?rcf (- ?len 1)))       ;;len resorts imply len-1 routes
-    (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
-)
-
 (defrule BUILD-AND-RATE-TRIP::rate-trip-by-hotels 
     (trip (trip-id ?id) (resorts $?rl ?r $?rr) (hotels $?hs) (days $?ds) (length ?len))
     (dv (description the-hotel-in ?r) (value ?h) (CF ?hcf))
@@ -1134,6 +1133,14 @@
     (bind ?index (member$ ?r (create$ ?rl ?r ?rr)))
     (bind ?d (nth ?index ?ds))
     (bind ?tcf (/ (* ?d ?hcf) ?td))
+    (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
+)
+
+(defrule BUILD-AND-RATE-TRIP::rate-trip-by-routes
+    (trip (trip-id ?id) (resorts $?rl ?rs ?rd $?rr) (length ?len))
+    (dv (description use-route) (value ?rs ?rd) (CF ?rcf))
+=>  
+    (bind ?tcf (/ ?rcf (- ?len 1)))       ;;len resorts imply len-1 routes
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
 
@@ -1153,7 +1160,6 @@
     (bind ?tcf (min 0.1 (max -0.8 (/ (- ?b ?total-cost) ?*MAX-BUDGET-TOLERANCE*))))   
     (assert (dv (description the-trip) (value ?id) (CF ?tcf)))
 )
-
 
 (defrule BUILD-AND-RATE-TRIP::rate-trip-by-start-resort
     (dv (description the-start-resort) (value ?sr))
@@ -1194,13 +1200,13 @@
    (printout t  crlf crlf)
    (printout t " >>>>>>>>>>>>>>>   SELECTED TRIPS (ITERATION " (+ ?i 1) ")  <<<<<<<<<<<<<<<"  crlf)
    (printout t  crlf)
-   (assert (printed-trips 1))
+   (assert (printed-trips 0))
 )
    
 
 (defrule PRINT-RESULTS::print-and-remove-best-trip 
   ?fact1 <- (printed-trips ?p)
-  (test (<= ?p 5))
+  (test (< ?p 5))
   ?fact2 <- (dv (description the-trip) (value ?tid) (CF ?tcf))	
   (not (dv (description the-trip) (value ?tid2&~?tid) (CF ?tcf2&:(> ?tcf2 ?tcf))))
   (test (> ?tcf ?*MIN-PRINT-CF*))
@@ -1211,18 +1217,25 @@
   (retract ?fact2)
   (bind ?total-cost (+ (expand$ ?cs) 0))
   (printout t  crlf)
-  (printout t " Trip suggestion " ?p " with certainty: " (/ (round (* ?tcf 1000)) 10) "%" crlf)
+  (printout t " Trip suggestion " (+ ?p 1) " with certainty: " (/ (round (* ?tcf 1000)) 10) "%" crlf)
   (printout t "  - Resorts to visit: " ?rs crlf)
   (printout t "  - Hotels: " (subseq$ ?hs 1 ?len ) crlf)
   (printout t "  - Days partitioning: " ?ds crlf)
   (printout t "  - Daily costs: " (subseq$ ?cs 1 ?len ) "  |  Total cost: " ?total-cost crlf) 
   (printout t  crlf)
-  (printout t "       _____________________________________________________" crlf)
+  (printout t "      _____________________________________________________" crlf)
   (printout t  crlf)
 ) 
 
-(defrule PRINT-RESULTS::on-exit
+(defrule PRINT-RESULTS::test-no-good-trip
     (declare (salience -500))
+    (printed-trips 0)
+=>
+    (printout t " --- Sorry, no trip compatible with your requests was found. ---" crlf crlf)
+)
+
+(defrule PRINT-RESULTS::on-exit
+    (declare (salience -1000))
     ?fact <- (printed-trips ?p)
 =>
     (retract ?fact)
@@ -1236,7 +1249,7 @@
 
 (defmodule INVALIDATE (import COMMON ?ALL) (import TRIP ?ALL))
 
-
+;;;;;; REMOVE DERIVED (NON-BASIC) DV ;;;;;;;
 
 (defrule INVALIDATE::remove-derived-dv
     ?fact <- (dv (basic FALSE))
@@ -1244,10 +1257,24 @@
     (retract ?fact)
 )
 
+;;;;;; REMOVE TRIPS AND RELATED INFORMATION ;;;;;;
+
 (defrule INVALIDATE::remove-trip
     ?t <- (trip)
 =>
     (retract ?t)
+)
+
+(defrule INVALIDATE::remove-average-resort-cf
+    ?f <- (average-resort-cf)
+=>
+    (retract ?f)
+)
+
+(defrule INVALIDATE::remove-banned-path
+    ?f <- (banned-path)
+=>
+    (retract ?f)
 )
 
 (defrule INVALIDATE::on-exit
