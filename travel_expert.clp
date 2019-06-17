@@ -1,0 +1,6 @@
+(clear)
+;;(watch facts)
+(load domain.clp)
+(load reasoning.clp)
+(reset)
+(run)
