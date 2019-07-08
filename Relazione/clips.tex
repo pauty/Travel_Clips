@@ -39,7 +39,7 @@ Pone all'utente una o più domande; le risposte vengono memorizzate per poi esse
 \item \textbf{QUESTION-INFERENCE}\\
 Il modulo in esame si occupa di inferire le preferenze dell'utente a partire dalle riposte che egli fornisce. Ad esempio, se alla domanda ``Predilige località dal clima caldo o dal clima freddo?" l'utente risponde ``caldo", il sistema può dedurre che la tipologia di turismo più adatta in questo caso è ``balneare" associandogli un CF pari a $0.4$, mentre penalizzerà il turismo ``montano" associandogli un CF pari a $-0.4$.
 \item \textbf{INIT}\\
-Si occupa di eseguire alcune operazioni di inizializzazione, asserendo fatti che verranno utilizzati durante tutte le iterazioni successive. A differenza delle regole definite nei moduli seguenti, che vengono attivate ad ogni nuova iterazione, le regole del modulo \texttt{INIT} sono pensate per essere attivate un'unica volta in quanto legate a preferenze il cui grado di certezza non cambia nel tempo. In questa categoria ricadono ad esempio il numero di località che si desidera visitare o la durata totale della villeggiatura. Alcune domande risultano essenziali per il corretto funzionamento del modulo \texttt{INIT} e pertanto il sistema non permette all'utente di ignorarle. 
+Si occupa di eseguire alcune operazioni di inizializzazione, asserendo fatti che verranno utilizzati durante tutte le iterazioni successive. A differenza delle regole definite nei moduli seguenti, che vengono attivate ad ogni nuova iterazione, le regole del modulo \texttt{INIT} sono pensate per essere attivate un'unica volta in quanto legate a preferenze il cui grado di certezza non cambia nel tempo. In questa categoria ricadono ad esempio il numero di località che si desiderano visitare o la durata totale della villeggiatura. Alcune domande risultano essenziali per il corretto funzionamento del modulo \texttt{INIT} e pertanto il sistema non permette all'utente di ignorarle. 
 \item \textbf{RATE-RESORT}\\
 Contiene regole che vengono attivate ad ogni iterazione e hanno il compito di associare un ``punteggio" (in termini di CF) alle diverse località turistiche a partire dalle caratteristiche che le contraddistinguono e dalle preferenze espresse dall'utente.
 \item \textbf{RATE-HOTEL}\\
@@ -62,7 +62,7 @@ per far sì che i file vengano caricati rispettando le dipendenze e l'esecuzione
 
 \section{Template e scelte implementative}
 
-La presente sezione presenta nel dettaglio alcuni dei template fondamentali per il funzionamento del sistema esperto realizzato, e allo stesso tempo tratta le scelte implementative correlate.
+La presente sezione analizza nel dettaglio alcuni dei template fondamentali per il funzionamento del sistema esperto realizzato, e allo stesso tempo tratta le scelte implementative correlate.
 
 \subsection{Description-Value (DV)}
 
@@ -92,8 +92,8 @@ A titolo di esempio si riportano anche alcune istanze del suddetto template, uti
 \end{lstlisting}
 
 A questi fatti è possibile associare i seguenti significati: ``Il tipo di turismo ottimale è montano con CF 0.4", ``La località turistica ottimale è Resort1 con CF 0.6", ``Il miglior hotel nella località Resort1 è Hotel3 con CF 0.3" e infine ``L'utente percorre di buon grado la strada che connette Resort1 a Resort5 con CF -0.2". Come è possibile osservare, l'utilizzo di multislot sia per il campo descrizione che per il campo valore permette una notevole espressività e flessibilità.\\
-Due fatti aventi stessa descrizione e stesso valore vengono combinati e il CF risultante è calcolato secondo precise regole: tali regole fanno anch'esse parte del modulo \texttt{COMMON} e godono di \texttt{auto-focus}, così da poter essere attivate in qualsiasi momento.\\
-Lo slot \texttt{basic} permette di distinguere i fatti di base (dei quali si tiene ``memoria" tra una iterazione e la successiva) dai fatti derivati (che al contrario vengono rimossi durante la fase \texttt{INVALIDATE}). Questa distinzione è necessaria in quanto i fatti \texttt{dv} derivati, poiché dipendono da altri fatti di tipo \texttt{dv}, devono essere ricalcolati ad ogni iterazione onde evitare comportamenti anomali. Per convincersene si consideri la seguente situazione:
+Due fatti aventi stessa descrizione e stesso valore vengono combinati e il CF risultante è calcolato secondo regole precise: tali regole fanno anch'esse parte del modulo \texttt{COMMON} e godono di \texttt{auto-focus}, così da poter essere attivate in qualsiasi momento.\\
+Lo slot \texttt{basic} permette di distinguere i fatti di base (dei quali si tiene ``memoria" tra un'iterazione e la successiva) dai fatti derivati (che al contrario vengono rimossi durante la fase \texttt{INVALIDATE}). Questa distinzione è necessaria in quanto i fatti \texttt{dv} derivati, poiché dipendono da altri fatti di tipo \texttt{dv}, devono essere ricalcolati ad ogni iterazione onde evitare comportamenti anomali. Per convincersene si consideri la seguente situazione:
 
 \begin{enumerate}
 \item Inizialmente, alla località Resort1 è associato un CF di $0.7$.
@@ -217,8 +217,8 @@ I test effettuati sono stati condotti predisponendo:
 \item una media di 4 connessioni tra ciascuna località e quelle adiacenti.
 \end{itemize}
 Nelle condizioni attuali, ogni iterazione non impiega più di un paio di secondi per fornire un risultato. Le iterazioni successive alla prima, non dovendo ripetere la fase di \texttt{INIT} (che si occupa di compiti computazionalmente onerosi, come la costruzione dei path), spesso forniscono risposte pressoché istantanee.\\
-Gli itinerari proposti dal sistema risultano piuttosto coerenti con le richieste nella maggior parte dei casi. Per quanto riguarda i casi in cui questo non accade, le cause sono spesso da ricercarsi in una effettiva carenza di soluzioni compatibili o in eventuali risposte contraddittorie da parte dell'utente (ad esempio ``voglio andare al mare e non in montagna; non amo i posti caldi, preferisco i posti freddi"). \\
-Miglioramenti futuri potrebbero certamente concentrarsi sull'aggiunta di un numero maggiore di domande, eventualmente anche molto specifiche, che guidino opportunamente il sistema nella sua ricerca. Inoltre, un'accurata operazione di ``fine-tuning" dei vari parametri utilizzati nella valutazione dei diversi aspetti che caratterizzano un viaggio potrebbe portare a risultati ancora più apprezzabili.
+Nella maggior parte delle situazioni gli itinerari proposti dal sistema risultano piuttosto coerenti con le richieste. Per quanto riguarda i casi in cui questo non accade, le cause sono spesso da ricercarsi in una effettiva carenza di soluzioni compatibili o in eventuali risposte contraddittorie da parte dell'utente (ad esempio ``voglio andare al mare e non in montagna; non amo i posti caldi, preferisco i posti freddi"). \\
+Miglioramenti futuri potrebbero concentrarsi soprattutto sull'aggiunta di nuove domande, eventualmente anche molto specifiche, che guidino opportunamente il sistema nella sua ricerca. Inoltre, un'accurata operazione di ``fine-tuning" dei vari parametri utilizzati nella valutazione degli aspetti che caratterizzano un viaggio potrebbe portare a risultati ancora più apprezzabili.
 
 
 
