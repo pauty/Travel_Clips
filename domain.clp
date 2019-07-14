@@ -255,7 +255,7 @@
     (resort (name Celestopoli) (region Kanto))
     (resort (name Aranciopoli) (region Kanto))
     (resort (name Fucsiapoli) (region Kanto))
-    (resort (name Azzuropoli) (region Kanto))
+    (resort (name Azzurropoli) (region Kanto))
     (resort (name Zafferanopoli) (region Kanto))
     (resort (name Isola_Cannella) (region Kanto))
     (resort (name Altopiano_Blu) (region Kanto))

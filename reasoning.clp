@@ -479,8 +479,7 @@
 )
 
 (defrule INIT::increment-invalid-duration
-    (duration (days $?dl ?d $?dr) (length ?l) (target ?t))
-    (test (eq ?t ?l))
+    (duration (days $?dl ?d $?dr) (length ?l) (target ?l))
     (dv (description the-trip-duration) (value ?td))
     (test (< (+ (expand$ (create$ ?dl ?d ?dr)) 0) ?td))
 =>
@@ -524,7 +523,7 @@
 (defrule RATE-RESORT::rate-resort-by-lack-of-interest
     (iteration (number ?i))
     (resort (name ?r))  
-    (not (and (resort-tourism (resort-name ?r) (tourism-type ?t) (score ?s))
+    (not (and (resort-tourism (resort-name ?r) (tourism-type ?t))
               (dv (description the-tourism-type) (value ?t) (CF ?cf&:(> ?cf 0)))))
 =>
     (assert (dv (description the-resort) (value ?r) (CF -0.3)))
